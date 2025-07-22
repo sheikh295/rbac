@@ -416,41 +416,68 @@ await RBAC.updateUser('user123', { name: 'John Smith' });
 
 ```typescript
 // Using built-in controllers for complex operations
+// ⚠️ IMPORTANT: Always use RBAC.controllers methods - never access models directly!
 const { userRole, feature } = RBAC.controllers;
 
 // Create a complex role with multiple features
-const managerRole = {
-  name: 'manager',
-  description: 'Department manager with limited admin access',
-  features: [
-    {
-      feature: 'users',
-      permissions: ['read', 'create', 'update'] // No delete permission
-    },
-    {
-      feature: 'reports',
-      permissions: ['read', 'create', 'sudo'] // Can generate all reports
-    },
-    {
-      feature: 'billing',
-      permissions: ['read'] // Read-only billing access
-    }
-  ]
-};
+// Using RBAC's safe controller methods (no direct DB access)
 
-await userRole.createRole(
-  managerRole.name,
-  managerRole.description,
-  managerRole.features
-);
+// Step 1: Create features first (if they don't exist)
+await feature.createFeature('users', 'User management system');
+await feature.createFeature('reports', 'Reporting and analytics');
+await feature.createFeature('billing', 'Billing and payments');
 
-// Create application features
+// Step 2: Get all available features and permissions using RBAC methods
+const { features } = await feature.getAllFeatures();
+const { permissions } = await userRole.getPermissions();
+
+// Find the features and permissions we need
+const usersFeature = features.find(f => f.name === 'users');
+const reportsFeature = features.find(f => f.name === 'reports');
+const billingFeature = features.find(f => f.name === 'billing');
+
+const readPerm = permissions.find(p => p.name === 'read');
+const createPerm = permissions.find(p => p.name === 'create');
+const updatePerm = permissions.find(p => p.name === 'update');
+const sudoPerm = permissions.find(p => p.name === 'sudo');
+
+// Step 3: Create the role with proper ObjectIds
+const managerRoleFeatures = [
+  {
+    feature: usersFeature._id,
+    permissions: [readPerm._id, createPerm._id, updatePerm._id] // No delete permission
+  },
+  {
+    feature: reportsFeature._id,
+    permissions: [readPerm._id, createPerm._id, sudoPerm._id] // Can generate all reports
+  },
+  {
+    feature: billingFeature._id,
+    permissions: [readPerm._id] // Read-only billing access
+  }
+];
+
+await userRole.createRole('manager', 'Department manager with limited admin access', managerRoleFeatures);
+```
+
+#### 🔒 **Safe Data Access Methods**
+
+```typescript
+// ✅ CORRECT: Use RBAC controller methods (secure & encapsulated)
+const { userRole, feature } = RBAC.controllers;
+
+// Get all available data safely
+const { features } = await feature.getAllFeatures();
+const { permissions } = await userRole.getPermissions();
+const { userRoles } = await userRole.getAllRoles();
+
+// Create new entities
 await feature.createFeature('inventory', 'Inventory management system');
 await feature.createFeature('analytics', 'Business analytics dashboard');
 
-// Advanced permission queries
+// Advanced permission queries using RBAC methods
 const allUserPermissions = await RBAC.getFeaturePermissions('user123', 'billing');
-const userRole = await RBAC.getUserRole('user123');
+const currentUserRole = await RBAC.getUserRole('user123');
 ```
 
 ### 🔌 Integration with Popular Auth Systems

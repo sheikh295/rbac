@@ -42,13 +42,7 @@ export { RBAC } from './RBAC';
 /** TypeScript type definitions */
 export * from './types';
 
-/** MongoDB models for advanced usage */
-export { User } from './mongo/models/User';
-export { UserRole } from './mongo/models/UserRole';
-export { Feature } from './mongo/models/Feature';
-export { Permission } from './mongo/models/Permission';
-
-/** Database controllers for advanced operations */
+/** Database controllers for safe advanced operations */
 export { userRoleController } from './mongo/controllers/userrole.controller';
 export { featureController } from './mongo/controllers/feature.controller';
 
