@@ -8,7 +8,6 @@ import { userRoleController } from '../mongo/controllers/userrole.controller';
 import { featureController } from '../mongo/controllers/feature.controller';
 import { Types } from 'mongoose';
 
-// Import views
 import { getDashboardView } from './views/dashboard';
 import { getUsersListView, getUserDetailsView } from './views/users';
 import { getRolesListView, getRoleDetailsView } from './views/roles';
@@ -18,7 +17,6 @@ import { getPermissionsListView, getPermissionDetailsView } from './views/permis
 export const createAdminRouter = (): Router => {
   const router = Router();
 
-  // Dashboard
   router.get('/', async (req: Request, res: Response) => {
     try {
       // Get counts for dashboard stats
@@ -38,14 +36,11 @@ export const createAdminRouter = (): Router => {
 
       res.send(getDashboardView(stats));
     } catch (error) {
-      console.error('Error loading dashboard stats:', error);
-      // Fallback with default stats
       const stats = { users: 0, roles: 0, features: 0, permissions: 5 };
       res.send(getDashboardView(stats));
     }
   });
 
-  // Stats API endpoint for real-time updates
   router.get('/api/stats', async (req: Request, res: Response) => {
     try {
       const [usersCount, rolesCount, featuresCount, permissionsCount] = await Promise.all([
@@ -70,7 +65,6 @@ export const createAdminRouter = (): Router => {
     }
   });
 
-  // USERS ROUTES
   router.get('/users', async (req: Request, res: Response) => {
     try {
       const page = parseInt(req.query.page as string) || 1;
@@ -78,7 +72,6 @@ export const createAdminRouter = (): Router => {
       const search = req.query.search as string || '';
       const skip = (page - 1) * limit;
 
-      // Build search query
       const searchQuery: any = {};
       if (search) {
         searchQuery.$or = [
@@ -198,7 +191,6 @@ export const createAdminRouter = (): Router => {
     }
   });
 
-  // ROLES ROUTES
   router.get('/roles', async (req: Request, res: Response) => {
     try {
       const roles = await UserRole.find().populate('features.feature features.permissions').exec();
@@ -229,7 +221,6 @@ export const createAdminRouter = (): Router => {
     try {
       const { name, description, features } = req.body;
       
-      // Features should already be an array from JSON payload
       const featuresArray = features || [];
       
       const result = await userRoleController.createRole(name, description, featuresArray);
@@ -256,7 +247,6 @@ export const createAdminRouter = (): Router => {
     try {
       const { featureIds } = req.body;
       
-      // Ensure array - single values become single-item arrays
       const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
       
       const result = await userRoleController.addFeatureToUserRole(req.params.roleId, featureIdsArray);
@@ -270,7 +260,6 @@ export const createAdminRouter = (): Router => {
     try {
       const { featureIds } = req.body;
       
-      // Ensure array - single values become single-item arrays
       const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
       
       const result = await userRoleController.removeFeatureFromUserRole(req.params.roleId, featureIdsArray);
@@ -284,7 +273,6 @@ export const createAdminRouter = (): Router => {
     try {
       const { featureIds, permissionIds } = req.body;
       
-      // Ensure arrays - single values become single-item arrays
       const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
       const permissionIdsArray = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
       
@@ -299,7 +287,6 @@ export const createAdminRouter = (): Router => {
     try {
       const { featureIds, permissionIds } = req.body;
       
-      // Ensure arrays - single values become single-item arrays
       const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
       const permissionIdsArray = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
       
@@ -310,7 +297,6 @@ export const createAdminRouter = (): Router => {
     }
   });
 
-  // FEATURES ROUTES
   router.get('/features', async (req: Request, res: Response) => {
     try {
       const features = await Feature.find().exec();
@@ -368,7 +354,6 @@ export const createAdminRouter = (): Router => {
     }
   });
 
-  // PERMISSIONS ROUTES
   router.get('/permissions', async (req: Request, res: Response) => {
     try {
       const permissions = await Permission.find().exec();

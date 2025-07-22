@@ -6,6 +6,78 @@ A **revolutionary, fully dynamic** Role-Based Access Control (RBAC) package for 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
+## 🚀 Quick Start
+
+### Installation
+
+```bash
+npm install @sheikh295/rbac
+```
+
+### 🔥 Easy Plug & Play - Get Started in 2 Minutes!
+
+**Step 1**: Initialize with minimal setup
+```javascript
+const express = require('express');
+const mongoose = require('mongoose');
+const { RBAC } = require('@sheikh295/rbac');
+
+const app = express();
+app.use(express.json());
+
+// Connect to MongoDB and initialize RBAC
+mongoose.connect('mongodb://localhost:27017/your-app')
+  .then(async (result) => {
+    // One-line RBAC initialization
+    await RBAC.init({
+      db: result.connection,
+      authAdapter: async (req) => ({ user_id: req.user?.id || req.headers['user-id'] })
+    });
+
+    app.listen(3000, () => console.log('🚀 Server running with RBAC!'));
+  });
+```
+
+**Step 2**: Protect your routes (auto-permission detection!)
+```javascript
+// ✨ RBAC automatically detects what permissions are needed!
+app.get('/billing/invoices', RBAC.checkPermissions(), (req, res) => {
+  // Auto-detected: feature="billing", permission="read"
+  res.json({ invoices: [] });
+});
+
+app.post('/users/create', RBAC.checkPermissions(), (req, res) => {
+  // Auto-detected: feature="users", permission="create"
+  res.json({ message: 'User created!' });
+});
+
+app.delete('/reports/:id', RBAC.checkPermissions(), (req, res) => {
+  // Auto-detected: feature="reports", permission="delete"
+  res.json({ message: 'Report deleted!' });
+});
+```
+
+**Step 3**: Add the beautiful admin dashboard
+```javascript
+// Mount admin dashboard - that's it!
+app.use('/rbac-admin', RBAC.adminDashboard({
+  user: 'admin',
+  pass: 'yourpassword'
+}));
+```
+
+**🎉 Done!** Visit `/rbac-admin` to manage users, roles, and permissions with a beautiful UI!
+
+### 📱 Register Users Automatically
+
+Add user registration middleware to your signup routes:
+```javascript
+app.post('/signup', RBAC.registerUser(), (req, res) => {
+  // User automatically registered in RBAC system!
+  res.json({ message: 'Account created!' });
+});
+```
+
 ## 🚀 What Makes This RBAC Library Unique?
 
 ### **🎯 Truly Dynamic & Flexible**
@@ -47,17 +119,7 @@ While other libraries make you build your own admin interface, we provide a **pr
 - 📊 **Live statistics** - Real-time dashboard with database counts
 
 ### **🔧 Zero Configuration Constraints**
-```javascript
-// Create roles with ANY names you want
-await RBAC.createRole('PowerUser', 'Advanced user with special access');
-await RBAC.createRole('BillingTeam', 'Team that handles billing operations');
-await RBAC.createRole('ReadOnlyAuditor', 'Can view everything but modify nothing');
-
-// Assign ANY features to ANY roles
-await RBAC.assignFeatureToRole('BillingTeam', 'billing', ['read', 'create', 'update']);
-await RBAC.assignFeatureToRole('PowerUser', 'user-management', ['read', 'create']);
-await RBAC.assignFeatureToRole('ReadOnlyAuditor', 'reports', ['read']);
-```
+Create roles with **ANY custom names** you want - `PowerUser`, `BillingTeam`, `ReadOnlyAuditor`, or `CustomRole123`. Unlike other libraries that force predefined roles, our system gives you complete freedom to design your permission structure exactly how your business needs it.
 
 ## 📊 Why Choose Us Over Other RBAC Libraries?
 
@@ -107,74 +169,6 @@ app.delete('/users/:id', RBAC.checkPermissions({
 - 📊 **MongoDB Integration** - Efficient, scalable data storage with Mongoose
 - 🎯 **TypeScript Support** - Full type safety and IntelliSense
 - 🔌 **Auth System Agnostic** - Works with JWT, sessions, or any authentication method
-
-## 🚀 Quick Start
-
-### Installation
-
-```bash
-npm install @sheikh295/rbac
-```
-
-### Basic Setup
-
-```javascript
-const express = require('express');
-const mongoose = require('mongoose');
-const { RBAC } = require('@sheikh295/rbac');
-
-const app = express();
-app.use(express.json());
-
-// Connect to MongoDB
-mongoose
-  .connect('mongodb://localhost:27017/rbac-demo')
-  .then((result) => {
-    // Initialize RBAC (automatically creates standard permissions)
-    RBAC.init({
-      db: result.connection, // or real MongoDB
-      authAdapter: async (req) => {
-        // Extract user identity from JWT or session
-        // This would typically decode a JWT token
-        return {
-          user_id: req.headers['user-id'], // Your auth system provides this
-          email: req.headers['user-email']
-        };
-      },
-      onUserRegister: (user) => {
-        console.log('User registered in RBAC:', user);
-      },
-      onRoleUpdate: (payload) => {
-        console.log('Role updated:', payload);
-      },
-      defaultRole: 'user' // Auto-assign 'user' role to new signups
-    }).then(() => {
-      app.listen(3000, '0.0.0.0', () => {
-        console.info(`connected to db and app listening on port ${3000}`);
-      });
-    });
-  })
-  .catch((err) => {
-    console.error('Error connecting to MongoDB:', err);
-  });
-
-// Protect routes with auto-inferred permissions
-app.get('/billing/invoices', RBAC.checkPermissions(), (req, res) => {
-  // Requires: feature: "billing", permission: "read"
-  res.json({ invoices: [] });
-});
-
-app.post('/billing/create', RBAC.checkPermissions(), (req, res) => {
-  // Requires: feature: "billing", permission: "create" 
-  res.json({ message: 'Invoice created' });
-});
-
-// Mount admin dashboard
-app.use('/admin', RBAC.adminDashboard({
-  user: 'admin',
-  pass: 'secure-password'
-}));
-```
 
 ## 📖 Core Concepts
 
@@ -229,66 +223,6 @@ The middleware automatically infers permissions from your routes:
 | `DELETE /billing/:id` | DELETE | billing | delete |
 | `POST /billing/sudo/reset` | POST | billing | sudo |
 
-## 🔧 API Reference
-
-### Initialization
-
-```typescript
-await RBAC.init({
-  db: mongoose.connection,
-  authAdapter?: (req) => ({ user_id: string, email?: string }),
-  onUserRegister?: (user) => void,
-  onRoleUpdate?: (payload) => void,
-  defaultRole?: string // Optional: Auto-assign this role to new users
-});
-```
-
-> **Note**: `init()` is now async and automatically creates the 5 standard permissions (read, create, update, delete, sudo) if they don't exist.
-
-### Middleware
-
-#### checkPermissions()
-
-```typescript
-// Auto-infer from route
-app.get('/users', RBAC.checkPermissions(), handler);
-
-// Explicit permissions
-app.post('/admin/reset', RBAC.checkPermissions({
-  feature: 'admin',
-  permission: 'sudo'
-}), handler);
-```
-
-#### registerUser()
-
-```typescript
-// Auto-extract from request body
-app.post('/signup', RBAC.registerUser(), handler);
-
-// Custom extraction
-app.post('/signup', RBAC.registerUser({
-  userExtractor: (req) => ({
-    user_id: req.body.id,
-    name: req.body.fullName,
-    email: req.body.email
-  })
-}), handler);
-```
-
-### Manual Operations
-
-```typescript
-// User management
-await RBAC.registerUserManual('user123', { name: 'John', email: 'john@example.com' });
-await RBAC.updateUser('user123', { name: 'John Doe' });
-await RBAC.assignRole('user123', 'admin');
-
-// Query user permissions
-const role = await RBAC.getUserRole('user123');
-const permissions = await RBAC.getFeaturePermissions('user123', 'billing');
-```
-
 ## 🎨 Admin Dashboard
 
 Mount the admin dashboard to visually manage your RBAC system:
@@ -297,115 +231,55 @@ Mount the admin dashboard to visually manage your RBAC system:
 app.use('/rbac-admin', RBAC.adminDashboard({
   user: 'admin',
   pass: 'your-secure-password',
-  theme: 'default' // optional
+  sessionSecret: 'your-session-secret', // optional
+  sessionName: 'rbac.admin.sid' // optional
 }));
 ```
 
 ### Dashboard Features
 
-- 👥 **User Management** - View users, assign roles, track permissions
-- 🎭 **Role Editor** - Create roles with drag-and-drop feature assignment
-- ⚙️ **Feature Management** - Define application features
-- 🔐 **Permission Control** - Granular permission management
-- 📊 **Analytics** - Usage statistics and insights
+- 👥 **User Management** - View users, assign roles, track permissions with advanced search & pagination
+- 🎭 **Role Editor** - Create roles with custom names and feature assignments
+- ⚙️ **Feature Management** - Define your application's features and modules
+- 🔐 **Permission Control** - Granular permission management with visual interface
+- 📊 **Live Statistics** - Real-time dashboard with database counts and insights
 
 ![Dashboard Preview](https://via.placeholder.com/800x400?text=RBAC+Admin+Dashboard)
 
-## 🔌 Integration Examples
+## 🔧 Quick API Reference
 
-### With JWT Authentication
+### ✨ Middleware Functions
 
 ```typescript
-const jwt = require('jsonwebtoken');
+// Auto-detect permissions from route
+app.get('/billing/reports', RBAC.checkPermissions(), handler);
 
-await RBAC.init({
-  db: mongoose.connection,
-  authAdapter: async (req) => {
-    const token = req.headers.authorization?.split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    return {
-      user_id: decoded.id,
-      email: decoded.email
-    };
-  }
-});
+// Explicit permissions
+app.post('/admin/reset', RBAC.checkPermissions({
+  feature: 'admin',
+  permission: 'sudo'
+}), handler);
+
+// Register users automatically
+app.post('/signup', RBAC.registerUser(), handler);
 ```
 
-### With Passport.js
+### 🎯 Common Operations
 
 ```typescript
-await RBAC.init({
-  db: mongoose.connection,
-  authAdapter: async (req) => ({
-    user_id: req.user.id,
-    email: req.user.email
-  }),
-  onUserRegister: (user) => {
-    console.log('New user registered:', user);
-    // Send welcome email, analytics, etc.
-  }
-});
-```
+// Check user's role
+const userRole = await RBAC.getUserRole('user123');
 
-### Advanced Role Management
+// Get user's permissions for a feature
+const permissions = await RBAC.getFeaturePermissions('user123', 'billing');
 
-```typescript
-// Create a complex role
-const adminRole = {
-  name: 'admin',
-  description: 'Full system administrator',
-  features: [
-    {
-      feature: 'users',
-      permissions: ['read', 'create', 'update', 'delete']
-    },
-    {
-      feature: 'billing', 
-      permissions: ['read', 'create', 'update', 'sudo']
-    },
-    {
-      feature: 'reports',
-      permissions: ['read', 'create', 'sudo']
-    }
-  ]
-};
-
-await RBAC.controllers.userRole.createRole(
-  adminRole.name,
-  adminRole.description, 
-  adminRole.features
-);
-```
-
-## 🔒 Security Best Practices
-
-1. **Environment Variables**: Store admin credentials securely
-2. **HTTPS Only**: Always use HTTPS in production
-3. **Regular Audits**: Review roles and permissions regularly
-4. **Principle of Least Privilege**: Grant minimal necessary permissions
-5. **Session Management**: Implement proper session handling
-6. **Database Isolation**: RBAC uses separate `Rbac*` collections to avoid conflicts with your data
-
-## 🧪 Testing
-
-```typescript
-// Test permission checking
-const mockReq = {
-  method: 'GET',
-  path: '/billing/invoices',
-  user_id: 'test-user'
-};
-
-const hasPermission = await RBAC.checkUserPermission(
-  mockReq.user_id,
-  'billing',
-  'read'
-);
+// Assign a role to user
+await RBAC.assignRole('user123', 'admin');
 ```
 
 ## 📝 TypeScript Support
 
-Full TypeScript definitions included:
+Full TypeScript definitions included with IntelliSense support:
 
 ```typescript
 import { RBAC, RBACConfig, PermissionCheckOptions } from '@sheikh295/rbac';
@@ -418,6 +292,263 @@ const config: RBACConfig = {
 };
 
 await RBAC.init(config);
+```
+
+## 🔒 Security Best Practices
+
+1. **Environment Variables**: Store admin credentials securely
+2. **HTTPS Only**: Always use HTTPS in production
+3. **Regular Audits**: Review roles and permissions regularly
+4. **Principle of Least Privilege**: Grant minimal necessary permissions
+5. **Session Management**: Implement proper session handling
+6. **Database Isolation**: RBAC uses separate `Rbac*` collections to avoid conflicts with your data
+
+---
+
+## 🔧 Advanced Configuration & Manual Operations
+
+### 🛠️ Complete Initialization Configuration
+
+```javascript
+await RBAC.init({
+  db: mongoose.connection,
+  
+  // Custom user identity extraction
+  authAdapter: async (req) => {
+    // Option 1: JWT Token
+    const token = req.headers.authorization?.split(' ')[1];
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
+    return { user_id: decoded.id, email: decoded.email };
+    
+    // Option 2: Session-based
+    return { user_id: req.user?.id, email: req.user?.email };
+    
+    // Option 3: Custom headers
+    return { 
+      user_id: req.headers['x-user-id'], 
+      email: req.headers['x-user-email'] 
+    };
+  },
+  
+  // Hooks for custom logic
+  onUserRegister: (user) => {
+    console.log('New user registered:', user);
+    // Send welcome email, update analytics, etc.
+  },
+  
+  onRoleUpdate: (payload) => {
+    console.log('Role updated:', payload);
+    // Log security events, invalidate caches, etc.
+  },
+  
+  // Auto-assign default role to new users
+  defaultRole: 'user' // This role must exist in your database
+});
+```
+
+### 📱 Advanced User Registration
+
+```typescript
+// Custom user data extraction
+app.post('/signup', RBAC.registerUser({
+  userExtractor: (req) => ({
+    user_id: req.body.userId || req.body.id,
+    name: req.body.fullName || req.body.displayName,
+    email: req.body.emailAddress
+  })
+}), (req, res) => {
+  res.json({ message: 'User registered with RBAC!' });
+});
+
+// Manual user operations
+await RBAC.registerUserManual('user123', { 
+  name: 'John Doe', 
+  email: 'john@example.com' 
+});
+
+await RBAC.updateUser('user123', { name: 'John Smith' });
+```
+
+### 🎭 Advanced Role & Permission Management
+
+```typescript
+// Using built-in controllers for complex operations
+const { userRole, feature } = RBAC.controllers;
+
+// Create a complex role with multiple features
+const managerRole = {
+  name: 'manager',
+  description: 'Department manager with limited admin access',
+  features: [
+    {
+      feature: 'users',
+      permissions: ['read', 'create', 'update'] // No delete permission
+    },
+    {
+      feature: 'reports',
+      permissions: ['read', 'create', 'sudo'] // Can generate all reports
+    },
+    {
+      feature: 'billing',
+      permissions: ['read'] // Read-only billing access
+    }
+  ]
+};
+
+await userRole.createRole(
+  managerRole.name,
+  managerRole.description,
+  managerRole.features
+);
+
+// Create application features
+await feature.createFeature('inventory', 'Inventory management system');
+await feature.createFeature('analytics', 'Business analytics dashboard');
+
+// Advanced permission queries
+const allUserPermissions = await RBAC.getFeaturePermissions('user123', 'billing');
+const userRole = await RBAC.getUserRole('user123');
+```
+
+### 🔌 Integration with Popular Auth Systems
+
+#### With JWT + Express
+
+```typescript
+const jwt = require('jsonwebtoken');
+
+await RBAC.init({
+  db: mongoose.connection,
+  authAdapter: async (req) => {
+    try {
+      const token = req.headers.authorization?.replace('Bearer ', '');
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      
+      return {
+        user_id: decoded.sub || decoded.id,
+        email: decoded.email
+      };
+    } catch (error) {
+      throw new Error('Invalid or expired token');
+    }
+  }
+});
+```
+
+#### With Passport.js
+
+```typescript
+const passport = require('passport');
+
+await RBAC.init({
+  db: mongoose.connection,
+  authAdapter: async (req) => {
+    if (!req.user) throw new Error('User not authenticated');
+    
+    return {
+      user_id: req.user._id.toString(),
+      email: req.user.email
+    };
+  },
+  onUserRegister: (user) => {
+    // Send welcome email through your email service
+    emailService.sendWelcomeEmail(user.email);
+  }
+});
+```
+
+#### With Custom Authentication
+
+```typescript
+await RBAC.init({
+  db: mongoose.connection,
+  authAdapter: async (req) => {
+    // Custom authentication logic
+    const apiKey = req.headers['x-api-key'];
+    const user = await YourUserModel.findOne({ apiKey });
+    
+    if (!user) throw new Error('Invalid API key');
+    
+    return {
+      user_id: user._id.toString(),
+      email: user.email
+    };
+  }
+});
+```
+
+### 🧪 Testing & Development
+
+```typescript
+// Testing permission checking
+const mockReq = {
+  method: 'GET',
+  path: '/billing/invoices',
+  headers: { 'user-id': 'test-user' }
+};
+
+// Test if user has specific permissions
+const permissions = await RBAC.getFeaturePermissions('test-user', 'billing');
+console.log('User permissions:', permissions); // ['read', 'create']
+
+// Verify role assignment
+const role = await RBAC.getUserRole('test-user');
+console.log('User role:', role); // 'manager'
+```
+
+### ⚙️ Production Configuration
+
+```typescript
+// Production-ready setup with error handling
+const initRBAC = async () => {
+  try {
+    await RBAC.init({
+      db: mongoose.connection,
+      authAdapter: async (req) => {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) throw new Error('No token provided');
+        
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        return { user_id: decoded.id, email: decoded.email };
+      },
+      defaultRole: process.env.DEFAULT_USER_ROLE || 'user',
+      onUserRegister: async (user) => {
+        // Log to your monitoring system
+        console.log(`New user registered: ${user.user_id}`);
+        
+        // Update your analytics
+        await analytics.track('user_registered', {
+          user_id: user.user_id,
+          email: user.email
+        });
+      }
+    });
+    
+    console.log('✅ RBAC System initialized successfully');
+  } catch (error) {
+    console.error('❌ Failed to initialize RBAC:', error);
+    process.exit(1);
+  }
+};
+
+await initRBAC();
+```
+
+### 🎯 Dynamic Role Creation Examples
+
+```javascript
+// Create roles with ANY names you want - no restrictions!
+await RBAC.controllers.userRole.createRole('PowerUser', 'Advanced user with special access', []);
+await RBAC.controllers.userRole.createRole('BillingTeam', 'Team that handles billing operations', []);
+await RBAC.controllers.userRole.createRole('ReadOnlyAuditor', 'Can view everything but modify nothing', []);
+
+// Then assign ANY features to ANY roles via the admin dashboard or programmatically:
+await RBAC.controllers.userRole.addFeatureToUserRole('role-id', ['billing-feature-id']);
+await RBAC.controllers.userRole.addPermissionToFeatureInUserRole(
+  'role-id', 
+  ['billing-feature-id'], 
+  ['read-permission-id', 'create-permission-id', 'update-permission-id']
+);
 ```
 
 ## 🤝 Contributing

@@ -9,16 +9,12 @@ const getAllRoles = async (): Promise<any> => {
     const userRoles = await UserRole.find().exec();
     return { message: "User Roles fetched successfully", userRoles };
   } catch (error) {
-    console.error("Error in getAllRoles:", error);
     return { error: "Internal server error" };
   }
 };
 
 const createRole = async (name: string, description: string, features: IFeaturePermission[]): Promise<any> => {
   try {
-    // payload to be received:
-    // name: string, description: string
-    // features: [{feature: string, permissions: [permissionIds]}]: IFeaturePermission[]
 
     const existingRole = await UserRole.findOne({ name }).exec();
     if (existingRole) {
@@ -34,7 +30,6 @@ const createRole = async (name: string, description: string, features: IFeatureP
     const savedRole = await newRole.save();
     return { message: "User Role created successfully", userRole: savedRole };
   } catch (error) {
-    console.error("Error in createRole:", error);
     return { error: "Internal server error" };
   }
 };
@@ -46,7 +41,6 @@ const deleteRole = async (roleId: string): Promise<any> => {
     const deletedRole = await UserRole.findByIdAndDelete(roleId).exec();
     return { message: "User Role deleted successfully" };
   } catch (error) {
-    console.error("Error in deleteRole:", error);
     return { error: "Internal server error" };
   }
 };
@@ -76,7 +70,6 @@ const addFeatureToUserRole = async (roleId: string, featureIds: string[]): Promi
 
     return { message: "Features added to user role successfully", userRole: role };
   } catch (error) {
-    console.error("Error in addFeatureToUserRole:", error);
     return { error: "Internal server error" };
   }
 };
@@ -100,7 +93,6 @@ const removeFeatureFromUserRole = async (roleId: string, featureIds: string[]): 
 
     return { message: "Features removed from user role successfully", userRole: role };
   } catch (error) {
-    console.error("Error in removeFeatureFromUserRole:", error);
     return { error: "Internal server error" };
   }
 };
@@ -140,7 +132,6 @@ const addPermissionToFeatureInUserRole = async (roleId: string, featureIds: stri
 
     return { message: "Permissions added successfully", userRole: role };
   } catch (error) {
-    console.error("Error in addPermissionToFeatureInUserRole:", error);
     return { error: "Internal server error" };
   }
 };
@@ -180,7 +171,6 @@ const removePermissionToFeatureInUserRole = async (roleId: string, featureIds: s
 
     return { message: "Permissions removed successfully", userRole: role };
   } catch (error) {
-    console.error("Error in removePermissionToFeatureInUserRole:", error);
     return { error: "Internal server error" };
   }
 };
@@ -190,7 +180,6 @@ const getPermissions = async (): Promise<any> => {
     const permissions = await Permission.find().exec();
     return { message: "Permissions fetched successfully", permissions };
   } catch (error) {
-    console.error("Error in getPermissions:", error);
     return { error: "Internal server error" };
   }
 };
