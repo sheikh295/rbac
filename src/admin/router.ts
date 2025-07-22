@@ -17,9 +17,6 @@ import { getPermissionsListView, getPermissionDetailsView } from './views/permis
 
 export const createAdminRouter = (): Router => {
   const router = Router();
-  
-  router.use(express.json());
-  router.use(express.urlencoded({ extended: true }));
 
   // Dashboard
   router.get('/', (req: Request, res: Response) => {
@@ -152,9 +149,11 @@ export const createAdminRouter = (): Router => {
   router.post('/roles/create', async (req: Request, res: Response) => {
     try {
       const { name, description, features } = req.body;
-      const parsedFeatures = typeof features === 'string' ? JSON.parse(features) : features || [];
       
-      const result = await userRoleController.createRole(name, description, parsedFeatures);
+      // Features should already be an array from JSON payload
+      const featuresArray = features || [];
+      
+      const result = await userRoleController.createRole(name, description, featuresArray);
       if (result.error) {
         return res.status(400).json(result);
       }
@@ -177,7 +176,11 @@ export const createAdminRouter = (): Router => {
   router.post('/roles/:roleId/add-features', async (req: Request, res: Response) => {
     try {
       const { featureIds } = req.body;
-      const result = await userRoleController.addFeatureToUserRole(req.params.roleId, featureIds);
+      
+      // Ensure array - single values become single-item arrays
+      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
+      
+      const result = await userRoleController.addFeatureToUserRole(req.params.roleId, featureIdsArray);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -187,7 +190,11 @@ export const createAdminRouter = (): Router => {
   router.post('/roles/:roleId/remove-features', async (req: Request, res: Response) => {
     try {
       const { featureIds } = req.body;
-      const result = await userRoleController.removeFeatureFromUserRole(req.params.roleId, featureIds);
+      
+      // Ensure array - single values become single-item arrays
+      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
+      
+      const result = await userRoleController.removeFeatureFromUserRole(req.params.roleId, featureIdsArray);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -197,7 +204,12 @@ export const createAdminRouter = (): Router => {
   router.post('/roles/:roleId/add-permissions', async (req: Request, res: Response) => {
     try {
       const { featureIds, permissionIds } = req.body;
-      const result = await userRoleController.addPermissionToFeatureInUserRole(req.params.roleId, featureIds, permissionIds);
+      
+      // Ensure arrays - single values become single-item arrays
+      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
+      const permissionIdsArray = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
+      
+      const result = await userRoleController.addPermissionToFeatureInUserRole(req.params.roleId, featureIdsArray, permissionIdsArray);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -207,7 +219,12 @@ export const createAdminRouter = (): Router => {
   router.post('/roles/:roleId/remove-permissions', async (req: Request, res: Response) => {
     try {
       const { featureIds, permissionIds } = req.body;
-      const result = await userRoleController.removePermissionToFeatureInUserRole(req.params.roleId, featureIds, permissionIds);
+      
+      // Ensure arrays - single values become single-item arrays
+      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
+      const permissionIdsArray = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
+      
+      const result = await userRoleController.removePermissionToFeatureInUserRole(req.params.roleId, featureIdsArray, permissionIdsArray);
       res.json(result);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });

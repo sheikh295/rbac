@@ -150,15 +150,17 @@ export const getRolesListView = (roles: any[], features: any[], permissions: any
               }
             });
             
-            // Create new form data with formatted features
-            const newFormData = new FormData();
-            newFormData.append('name', formData.get('name'));
-            newFormData.append('description', formData.get('description'));
-            newFormData.append('features', JSON.stringify(selectedFeatures));
+            // Create JSON payload with formatted features
+            const payload = {
+              name: formData.get('name'),
+              description: formData.get('description'),
+              features: selectedFeatures
+            };
             
             fetch('/rbac-admin/roles/create', {
               method: 'POST',
-              body: newFormData
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
             })
             .then(response => response.json())
             .then(data => {

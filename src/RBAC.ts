@@ -191,12 +191,21 @@ class RBACSystem {
           return res.status(409).json({ error: "User already registered in RBAC system" });
         }
 
-        // Create user reference (without role initially)
+        // Try to find default role if configured
+        let defaultRole = null;
+        if (this.config!.defaultRole) {
+          const role = await UserRole.findOne({ name: this.config!.defaultRole });
+          if (role) {
+            defaultRole = role._id;
+          }
+        }
+
+        // Create user reference with default role if available
         const newUser = new User({
           user_id: userData.user_id,
           name: userData.name || "",
           email: userData.email || "",
-          role: null, // Will be assigned later
+          role: defaultRole, // Assign default role if found, null otherwise
         });
 
         await newUser.save();
@@ -223,11 +232,20 @@ class RBACSystem {
       throw new Error("User already exists");
     }
 
+    // Try to find default role if configured
+    let defaultRole = null;
+    if (this.config!.defaultRole) {
+      const role = await UserRole.findOne({ name: this.config!.defaultRole });
+      if (role) {
+        defaultRole = role._id;
+      }
+    }
+
     const newUser = new User({
       user_id,
       name: userData.name || "",
       email: userData.email || "",
-      role: null,
+      role: defaultRole, // Assign default role if found, null otherwise
     });
 
     await newUser.save();
@@ -308,11 +326,18 @@ class RBACSystem {
   }
 
   adminDashboard(options: AdminDashboardOptions) {
+    const express = require('express');
     const { createAdminRouter } = require('./admin/router');
-    const adminRouter = createAdminRouter();
+    
+    // Create a new router for the admin dashboard
+    const dashboardRouter = express.Router();
+    
+    // Add body parsing middleware first
+    dashboardRouter.use(express.json());
+    dashboardRouter.use(express.urlencoded({ extended: true }));
     
     // Add authentication middleware
-    adminRouter.use((req: Request, res: Response, next: NextFunction) => {
+    dashboardRouter.use((req: Request, res: Response, next: NextFunction) => {
       // Basic auth check
       const auth = req.headers.authorization;
 
@@ -331,7 +356,11 @@ class RBACSystem {
       next();
     });
     
-    return adminRouter;
+    // Mount the admin routes
+    const adminRouter = createAdminRouter();
+    dashboardRouter.use('/', adminRouter);
+    
+    return dashboardRouter;
   }
 
   // Expose controllers for advanced usage

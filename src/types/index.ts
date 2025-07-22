@@ -6,6 +6,7 @@ export interface RBACConfig {
   authAdapter?: (req: Request) => Promise<{ user_id: string; email?: string }> | { user_id: string; email?: string };
   onUserRegister?: (user: { user_id: string; name?: string; email?: string }) => void | Promise<void>;
   onRoleUpdate?: (payload: { user_id: string; role: string }) => void | Promise<void>;
+  defaultRole?: string; // Default role name to assign to new users
 }
 
 export interface PermissionCheckOptions {

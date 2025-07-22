@@ -40,7 +40,8 @@ await RBAC.init({
   authAdapter: async (req) => ({
     user_id: req.user?.id, // Your auth system provides this
     email: req.user?.email
-  })
+  }),
+  defaultRole: 'user' // Auto-assign 'user' role to new signups
 });
 
 // Connect to MongoDB
@@ -91,6 +92,22 @@ When you initialize RBAC, these 5 standard permissions are automatically created
 - **`delete`** - Remove resources
 - **`sudo`** - Full administrative access
 
+### 🎯 **Auto-Role Assignment**
+
+Configure automatic role assignment for new users:
+
+```javascript
+await RBAC.init({
+  db: mongoose.connection,
+  defaultRole: 'user' // Assign 'user' role to all new signups
+});
+```
+
+**Behavior:**
+- ✅ If role exists → New users automatically get this role
+- ✅ If role doesn't exist → Users created without role (no error)
+- ✅ Works for both middleware and manual registration
+
 ### 🔍 Auto-Permission Inference
 
 The middleware automatically infers permissions from your routes:
@@ -112,7 +129,8 @@ await RBAC.init({
   db: mongoose.connection,
   authAdapter?: (req) => ({ user_id: string, email?: string }),
   onUserRegister?: (user) => void,
-  onRoleUpdate?: (payload) => void
+  onRoleUpdate?: (payload) => void,
+  defaultRole?: string // Optional: Auto-assign this role to new users
 });
 ```
 
@@ -315,12 +333,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🎯 Roadmap
 
+- [ ] **Multi-Framework Support** - NestJS
 - [ ] **Multi-Database Support** - PostgreSQL, MySQL adapters
-- [ ] **Role Inheritance** - Hierarchical role structures  
-- [ ] **Field-Level Permissions** - Granular data access control
 - [ ] **Audit Logging** - Track all permission changes
-- [ ] **REST API** - Headless RBAC management
-- [ ] **React Components** - Pre-built UI components
 
 ---
 
