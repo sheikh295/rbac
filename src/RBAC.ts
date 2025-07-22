@@ -327,32 +327,79 @@ class RBACSystem {
 
   adminDashboard(options: AdminDashboardOptions) {
     const express = require('express');
+    const session = require('express-session');
     const { createAdminRouter } = require('./admin/router');
+    const { getLoginView } = require('./admin/views/login');
     
     // Create a new router for the admin dashboard
     const dashboardRouter = express.Router();
     
-    // Add body parsing middleware first
+    // Add session middleware
+    dashboardRouter.use(session({
+      secret: options.sessionSecret || 'rbac-admin-secret-key',
+      name: options.sessionName || 'rbac.admin.sid',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        secure: false, // Set to true if using HTTPS
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+      }
+    }));
+    
+    // Add body parsing middleware
     dashboardRouter.use(express.json());
     dashboardRouter.use(express.urlencoded({ extended: true }));
     
-    // Add authentication middleware
+    // Login page route - GET /rbac-admin/login
+    dashboardRouter.get('/login', (req: Request, res: Response) => {
+      if ((req.session as any)?.authenticated) {
+        // Redirect to dashboard root if already authenticated
+        return res.redirect(req.baseUrl + '/');
+      }
+      res.send(getLoginView(req.baseUrl));
+    });
+    
+    // Login POST route - POST /rbac-admin/login
+    dashboardRouter.post('/login', (req: Request, res: Response) => {
+      const { username, password } = req.body;
+      
+      if (username === options.user && password === options.pass) {
+        (req.session as any).authenticated = true;
+        (req.session as any).username = username;
+        (req.session as any).loginTime = new Date().toISOString();
+        
+        // Redirect to dashboard root
+        res.redirect(req.baseUrl + '/');
+      } else {
+        // Redirect back to login with error
+        res.redirect(req.baseUrl + '/login?error=1');
+      }
+    });
+    
+    // Logout route - POST /rbac-admin/logout
+    dashboardRouter.post('/logout', (req: Request, res: Response) => {
+      req.session.destroy((err) => {
+        if (err) {
+          console.error('Session destroy error:', err);
+        }
+        // Redirect to login page
+        res.redirect(req.baseUrl + '/login');
+      });
+    });
+    
+    // Authentication middleware for all other routes
     dashboardRouter.use((req: Request, res: Response, next: NextFunction) => {
-      // Basic auth check
-      const auth = req.headers.authorization;
-
-      if (!auth) {
-        res.setHeader("WWW-Authenticate", 'Basic realm="RBAC Admin"');
-        return res.status(401).send("Authentication required");
+      // Skip authentication check for login routes
+      if (req.path === '/login' || req.path.startsWith('/login')) {
+        return next();
       }
-
-      const credentials = Buffer.from(auth.split(" ")[1], "base64").toString().split(":");
-      const [username, password] = credentials;
-
-      if (username !== options.user || password !== options.pass) {
-        return res.status(403).send("Invalid credentials");
+      
+      // Check if user is authenticated
+      if (!(req.session as any)?.authenticated) {
+        return res.redirect(req.baseUrl + '/login');
       }
-
+      
       next();
     });
     

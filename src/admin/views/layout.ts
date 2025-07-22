@@ -1,4 +1,4 @@
-export const getBaseLayout = (title: string, content: string): string => {
+export const getBaseLayout = (title: string, content: string, currentPath: string = ""): string => {
   return `
 <!DOCTYPE html>
 <html lang="en">
@@ -8,75 +8,218 @@ export const getBaseLayout = (title: string, content: string): string => {
     <title>${title} - RBAC Admin</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; 
-            background: #f5f5f5; 
-            color: #333;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            color: #2d3748;
         }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        .header { 
-            background: #2c3e50; 
-            color: white; 
-            padding: 1rem 0; 
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        
+        .sidebar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 250px;
+            height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            z-index: 1000;
+            overflow-y: auto;
         }
-        .header h1 { text-align: center; font-weight: 300; }
-        .nav { 
+        
+        .sidebar-header {
+            padding: 24px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .sidebar-title {
+            color: white;
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+        
+        .sidebar-subtitle {
+            color: rgba(255,255,255,0.8);
+            font-size: 14px;
+        }
+        
+        .sidebar-nav {
+            padding: 20px 0;
+        }
+        
+        .nav-item {
+            display: block;
+            padding: 12px 24px;
+            color: rgba(255,255,255,0.9);
+            text-decoration: none;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+        
+        .nav-item:hover {
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border-left-color: rgba(255,255,255,0.3);
+        }
+        
+        .nav-item.active {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border-left-color: #fff;
+        }
+        
+        .sidebar-footer {
+            position: absolute;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            padding: 0 20px;
+        }
+        
+        .logout-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            background: rgba(255,255,255,0.1);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 6px;
+            text-decoration: none;
+            text-align: center;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .logout-btn:hover {
+            background: rgba(255,255,255,0.2);
+            transform: translateY(-1px);
+        }
+        
+        .main-content {
+            margin-left: 250px;
+            min-height: 100vh;
+        }
+        
+        .top-bar {
+            background: white;
+            padding: 16px 32px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .page-title {
+            font-size: 24px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            color: #718096;
+            font-size: 14px;
+        }
+        
+        .content-area {
+            padding: 32px;
+        }
+        .content-card { 
             background: white; 
-            padding: 1rem; 
-            border-radius: 8px; 
-            margin-bottom: 2rem;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            overflow: hidden;
         }
-        .nav a { 
-            display: inline-block; 
-            padding: 8px 16px; 
-            margin: 0 8px; 
-            text-decoration: none; 
-            color: #2c3e50; 
-            border-radius: 4px;
-            transition: background-color 0.2s;
+        
+        .content-card-header {
+            padding: 24px 32px;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        .nav a:hover { background: #ecf0f1; }
-        .nav a.active { background: #3498db; color: white; }
-        .content { 
-            background: white; 
-            padding: 2rem; 
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        
+        .content-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        .content-card-body {
+            padding: 32px;
         }
         .btn { 
-            background: #3498db; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white; 
-            padding: 10px 20px; 
+            padding: 12px 24px; 
             border: none; 
-            border-radius: 4px; 
+            border-radius: 8px; 
             cursor: pointer;
             text-decoration: none;
-            display: inline-block;
-            transition: background-color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            font-weight: 500;
+            font-size: 14px;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(102, 126, 234, 0.2);
         }
-        .btn:hover { background: #2980b9; }
-        .btn-danger { background: #e74c3c; }
-        .btn-danger:hover { background: #c0392b; }
-        .btn-success { background: #27ae60; }
-        .btn-success:hover { background: #229954; }
+        .btn:hover { 
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(102, 126, 234, 0.3);
+        }
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 12px;
+        }
+        .btn-danger { 
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+            box-shadow: 0 2px 4px rgba(229, 62, 62, 0.2);
+        }
+        .btn-danger:hover { 
+            box-shadow: 0 4px 8px rgba(229, 62, 62, 0.3);
+        }
+        .btn-success { 
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            box-shadow: 0 2px 4px rgba(56, 161, 105, 0.2);
+        }
+        .btn-success:hover { 
+            box-shadow: 0 4px 8px rgba(56, 161, 105, 0.3);
+        }
+        .btn-secondary {
+            background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
+            box-shadow: 0 2px 4px rgba(113, 128, 150, 0.2);
+        }
+        .btn-secondary:hover {
+            box-shadow: 0 4px 8px rgba(113, 128, 150, 0.3);
+        }
         .table { 
             width: 100%; 
             border-collapse: collapse; 
-            margin-top: 1rem; 
         }
         .table th, .table td { 
-            padding: 12px; 
+            padding: 16px; 
             text-align: left; 
-            border-bottom: 1px solid #ddd; 
+            border-bottom: 1px solid #e2e8f0; 
         }
         .table th { 
-            background: #f8f9fa; 
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); 
             font-weight: 600;
+            color: #4a5568;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
         }
-        .table tr:hover { background: #f8f9fa; }
+        .table tr:hover { 
+            background: #f7fafc; 
+            transform: scale(1.001);
+            transition: all 0.2s ease;
+        }
+        .table td {
+            color: #2d3748;
+        }
         .form-group { margin-bottom: 1rem; }
         .form-group label { 
             display: block; 
@@ -85,15 +228,18 @@ export const getBaseLayout = (title: string, content: string): string => {
         }
         .form-control { 
             width: 100%; 
-            padding: 10px; 
-            border: 1px solid #ddd; 
-            border-radius: 4px; 
+            padding: 12px 16px; 
+            border: 2px solid #e2e8f0; 
+            border-radius: 8px; 
             font-size: 14px;
+            background: #f8fafc;
+            transition: all 0.2s ease;
         }
         .form-control:focus { 
             outline: none; 
-            border-color: #3498db; 
-            box-shadow: 0 0 5px rgba(52, 152, 219, 0.3); 
+            border-color: #667eea; 
+            background: white;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1); 
         }
         .alert { 
             padding: 12px; 
@@ -112,26 +258,43 @@ export const getBaseLayout = (title: string, content: string): string => {
         }
         .card { 
             background: white; 
-            border-radius: 8px; 
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1); 
-            margin-bottom: 1rem; 
+            border-radius: 12px; 
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05); 
+            margin-bottom: 24px; 
             overflow: hidden;
+            border: 1px solid #e2e8f0;
         }
         .card-header { 
-            background: #f8f9fa; 
-            padding: 1rem; 
-            border-bottom: 1px solid #ddd; 
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); 
+            padding: 20px 24px; 
+            border-bottom: 1px solid #e2e8f0; 
             font-weight: 600;
+            color: #2d3748;
         }
-        .card-body { padding: 1rem; }
+        .card-body { padding: 24px; }
         .badge { 
             display: inline-block; 
-            padding: 4px 8px; 
-            font-size: 12px; 
-            border-radius: 12px; 
-            background: #6c757d; 
+            padding: 4px 12px; 
+            font-size: 11px; 
+            font-weight: 500;
+            border-radius: 16px; 
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
             color: white; 
             margin: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .badge-success {
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+        }
+        .badge-danger {
+            background: linear-gradient(135deg, #f56565 0%, #e53e3e 100%);
+        }
+        .badge-warning {
+            background: linear-gradient(135deg, #ed8936 0%, #dd6b20 100%);
+        }
+        .badge-secondary {
+            background: linear-gradient(135deg, #718096 0%, #4a5568 100%);
         }
         .modal { 
             display: none; 
@@ -158,25 +321,129 @@ export const getBaseLayout = (title: string, content: string): string => {
             cursor: pointer;
         }
         .close:hover { color: #e74c3c; }
+        
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 24px;
+            margin-bottom: 32px;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #667eea;
+        }
+        
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2d3748;
+            margin-bottom: 4px;
+        }
+        
+        .stat-label {
+            color: #718096;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            margin: 24px 0;
+        }
+        
+        .pagination-btn {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            background: white;
+            color: #4a5568;
+            border-radius: 6px;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+        
+        .pagination-btn:hover {
+            background: #f7fafc;
+            border-color: #cbd5e0;
+        }
+        
+        .pagination-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                transform: translateX(-100%);
+                transition: transform 0.3s ease;
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            
+            .main-content {
+                margin-left: 0;
+            }
+            
+            .content-area {
+                padding: 16px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="container">
-            <h1>RBAC Admin Dashboard</h1>
+    <div class="sidebar">
+        <div class="sidebar-header">
+            <div class="sidebar-title">RBAC Admin</div>
+            <div class="sidebar-subtitle">Management Panel</div>
+        </div>
+        
+        <nav class="sidebar-nav">
+            <a href="/rbac-admin" class="nav-item ${currentPath === "/" ? "active" : ""}">
+                📊 Dashboard
+            </a>
+            <a href="/rbac-admin/users" class="nav-item ${currentPath.includes("/users") ? "active" : ""}">
+                👥 Users
+            </a>
+            <a href="/rbac-admin/roles" class="nav-item ${currentPath.includes("/roles") ? "active" : ""}">
+                🎭 Roles
+            </a>
+            <a href="/rbac-admin/features" class="nav-item ${currentPath.includes("/features") ? "active" : ""}">
+                ⚙️ Features
+            </a>
+            <a href="/rbac-admin/permissions" class="nav-item ${currentPath.includes("/permissions") ? "active" : ""}">
+                🔐 Permissions
+            </a>
+        </nav>
+        
+        <div class="sidebar-footer">
+            <button onclick="handleLogout()" class="logout-btn" style="border: none; cursor: pointer;">
+                🚪 Logout
+            </button>
         </div>
     </div>
     
-    <div class="container">
-        <nav class="nav">
-            <a href="/rbac-admin">Dashboard</a>
-            <a href="/rbac-admin/users">Users</a>
-            <a href="/rbac-admin/roles">Roles</a>
-            <a href="/rbac-admin/features">Features</a>
-            <a href="/rbac-admin/permissions">Permissions</a>
-        </nav>
+    <div class="main-content">
+        <div class="top-bar">
+            <h1 class="page-title">${title}</h1>
+            <div class="user-info">
+                👤 Admin User
+            </div>
+        </div>
         
-        <div class="content">
+        <div class="content-area">
             ${content}
         </div>
     </div>
@@ -199,6 +466,17 @@ export const getBaseLayout = (title: string, content: string): string => {
                     modal.style.display = 'none';
                 }
             });
+        }
+        
+        // Handle logout
+        function handleLogout() {
+            if (confirm('Are you sure you want to logout?')) {
+                const form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '/rbac-admin/logout';
+                document.body.appendChild(form);
+                form.submit();
+            }
         }
     </script>
 </body>

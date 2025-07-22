@@ -19,16 +19,95 @@ export const createAdminRouter = (): Router => {
   const router = Router();
 
   // Dashboard
-  router.get('/', (req: Request, res: Response) => {
-    res.send(getDashboardView());
+  router.get('/', async (req: Request, res: Response) => {
+    try {
+      // Get counts for dashboard stats
+      const [usersCount, rolesCount, featuresCount, permissionsCount] = await Promise.all([
+        User.countDocuments(),
+        UserRole.countDocuments(),
+        Feature.countDocuments(),
+        Permission.countDocuments()
+      ]);
+
+      const stats = {
+        users: usersCount,
+        roles: rolesCount,
+        features: featuresCount,
+        permissions: permissionsCount
+      };
+
+      res.send(getDashboardView(stats));
+    } catch (error) {
+      console.error('Error loading dashboard stats:', error);
+      // Fallback with default stats
+      const stats = { users: 0, roles: 0, features: 0, permissions: 5 };
+      res.send(getDashboardView(stats));
+    }
+  });
+
+  // Stats API endpoint for real-time updates
+  router.get('/api/stats', async (req: Request, res: Response) => {
+    try {
+      const [usersCount, rolesCount, featuresCount, permissionsCount] = await Promise.all([
+        User.countDocuments(),
+        UserRole.countDocuments(),
+        Feature.countDocuments(),
+        Permission.countDocuments()
+      ]);
+
+      res.json({
+        users: usersCount,
+        roles: rolesCount,
+        features: featuresCount,
+        permissions: permissionsCount,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        error: 'Failed to fetch stats',
+        message: (error as Error).message 
+      });
+    }
   });
 
   // USERS ROUTES
   router.get('/users', async (req: Request, res: Response) => {
     try {
-      const users = await User.find().populate('role').exec();
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 10;
+      const search = req.query.search as string || '';
+      const skip = (page - 1) * limit;
+
+      // Build search query
+      const searchQuery: any = {};
+      if (search) {
+        searchQuery.$or = [
+          { user_id: { $regex: search, $options: 'i' } },
+          { name: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } }
+        ];
+      }
+
+      const totalUsers = await User.countDocuments(searchQuery);
+      const users = await User.find(searchQuery)
+        .populate('role')
+        .skip(skip)
+        .limit(limit)
+        .exec();
+      
       const roles = await UserRole.find().exec();
-      res.send(getUsersListView(users, roles));
+      
+      const pagination = {
+        currentPage: page,
+        totalPages: Math.ceil(totalUsers / limit),
+        totalUsers,
+        hasNext: page < Math.ceil(totalUsers / limit),
+        hasPrev: page > 1,
+        limit,
+        search
+      };
+      
+      res.send(getUsersListView(users, roles, pagination));
     } catch (error) {
       res.status(500).send('Error loading users: ' + (error as Error).message);
     }

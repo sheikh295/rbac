@@ -26,6 +26,8 @@ export interface AdminDashboardOptions {
   user: string;
   pass: string;
   theme?: string;
+  sessionSecret?: string;
+  sessionName?: string;
 }
 
 export interface UserReference {

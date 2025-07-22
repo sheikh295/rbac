@@ -1,15 +1,25 @@
 import { getBaseLayout } from './layout';
 
-export const getUsersListView = (users: any[], roles: any[]): string => {
+export const getUsersListView = (users: any[], roles: any[], pagination?: any): string => {
   const usersRows = users.map(user => `
     <tr>
-      <td>${user.user_id}</td>
-      <td>${user.name || 'N/A'}</td>
-      <td>${user.email || 'N/A'}</td>
-      <td>${user.role ? (user.role as any).name : 'No Role'}</td>
       <td>
-        <button class="btn" onclick="openModal('assignRoleModal-${user.user_id}')">Assign Role</button>
-        <button class="btn btn-danger" onclick="confirmDelete('${user._id}', '${user.user_id}')">Delete</button>
+        <div style="font-weight: 500; color: #2d3748;">${user.user_id}</div>
+      </td>
+      <td>${user.name || '<span style="color: #a0aec0;">N/A</span>'}</td>
+      <td>${user.email || '<span style="color: #a0aec0;">N/A</span>'}</td>
+      <td>
+        ${user.role ? `<span class="badge badge-success">${(user.role as any).name}</span>` : '<span class="badge badge-secondary">No Role</span>'}
+      </td>
+      <td>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-sm" onclick="openModal('assignRoleModal-${user.user_id}')" title="Assign Role">
+            👤 Assign
+          </button>
+          <button class="btn btn-sm btn-danger" onclick="confirmDelete('${user._id}', '${user.user_id}')" title="Delete User">
+            🗑️ Delete
+          </button>
+        </div>
       </td>
     </tr>
   `).join('');
@@ -36,33 +46,77 @@ export const getUsersListView = (users: any[], roles: any[]): string => {
     </div>
   `).join('');
 
-  const content = `
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
-      <h2>User Management</h2>
-      <button class="btn btn-success" onclick="openModal('createUserModal')">Register New User</button>
+  // Simple pagination HTML
+  let paginationHtml = '';
+  if (pagination && pagination.totalPages > 1) {
+    paginationHtml = `
+    <div class="pagination">
+      ${pagination.hasPrev ? `<a href="/rbac-admin/users?page=${pagination.currentPage - 1}&search=${pagination.search || ''}" class="pagination-btn">← Previous</a>` : ''}
+      ${pagination.hasNext ? `<a href="/rbac-admin/users?page=${pagination.currentPage + 1}&search=${pagination.search || ''}" class="pagination-btn">Next →</a>` : ''}
     </div>
-    
-    <div class="card">
-      <div class="card-header">
-        <h4>All Users (${users.length})</h4>
+    <div style="text-align: center; color: #718096; font-size: 14px; margin-top: 16px;">
+      Page ${pagination.currentPage} of ${pagination.totalPages} - ${pagination.totalUsers} users total
+    </div>
+    `;
+  }
+
+  const content = `
+    <div class="content-card">
+      <div class="content-card-header">
+        <div class="content-card-title">User Management</div>
+        <button class="btn btn-success" onclick="openModal('createUserModal')">
+          ➕ Add User
+        </button>
       </div>
-      <div class="card-body">
-        <table class="table">
-          <thead>
-            <tr>
-              <th>User ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Role</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${usersRows}
-          </tbody>
-        </table>
+      
+      <div class="content-card-body">
+        <!-- Search Box -->
+        ${pagination ? `
+        <div style="margin-bottom: 24px;">
+          <form method="GET" action="/rbac-admin/users" style="display: flex; gap: 12px; align-items: center;">
+            <input type="hidden" name="page" value="1">
+            <div style="position: relative; flex: 1; max-width: 400px;">
+              <input 
+                type="text" 
+                name="search" 
+                value="${pagination.search || ''}"
+                placeholder="Search users by ID, name, or email..." 
+                class="form-control"
+                style="padding-left: 40px;"
+              >
+              <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #718096;">🔍</span>
+            </div>
+            <button type="submit" class="btn">Search</button>
+            ${pagination.search ? `<a href="/rbac-admin/users" class="btn btn-secondary">Clear</a>` : ''}
+          </form>
+        </div>
+        ` : ''}
+
+        <!-- Users Table -->
+        <div class="responsive-table">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>User ID</th>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Role</th>
+                <th style="text-align: center;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${users.length > 0 ? usersRows : `
+                <tr>
+                  <td colspan="5" style="text-align: center; padding: 48px; color: #a0aec0;">
+                    ${pagination?.search ? '🔍 No users found matching your search.' : '👥 No users registered yet.'}
+                  </td>
+                </tr>
+              `}
+            </tbody>
+          </table>
+        </div>
         
-        ${users.length === 0 ? '<p style="text-align: center; color: #666;">No users registered yet.</p>' : ''}
+        ${paginationHtml}
       </div>
     </div>
 
@@ -99,14 +153,22 @@ export const getUsersListView = (users: any[], roles: any[]): string => {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' }
           })
-          .then(() => window.location.reload())
-          .catch(err => alert('Error deleting user: ' + err.message));
+          .then(response => {
+            if (response.ok) {
+              window.location.reload();
+            } else {
+              throw new Error('Delete failed');
+            }
+          })
+          .catch(err => {
+            alert('Error deleting user: ' + err.message);
+          });
         }
       }
     </script>
   `;
   
-  return getBaseLayout('Users', content);
+  return getBaseLayout('Users', content, '/users');
 };
 
 export const getUserDetailsView = (user: any, availableRoles: any[]): string => {
@@ -190,5 +252,5 @@ export const getUserDetailsView = (user: any, availableRoles: any[]): string => 
     ` : ''}
   `;
   
-  return getBaseLayout('User Details', content);
+  return getBaseLayout('User Details', content, '/users');
 };

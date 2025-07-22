@@ -34,18 +34,37 @@ const { RBAC } = require('@sheikh295/rbac');
 const app = express();
 app.use(express.json());
 
-// Initialize RBAC (automatically creates standard permissions)
-await RBAC.init({
-  db: mongoose.connection,
-  authAdapter: async (req) => ({
-    user_id: req.user?.id, // Your auth system provides this
-    email: req.user?.email
-  }),
-  defaultRole: 'user' // Auto-assign 'user' role to new signups
-});
-
 // Connect to MongoDB
-mongoose.connect('mongodb://localhost:27017/myapp');
+mongoose
+  .connect('mongodb://localhost:27017/rbac-demo')
+  .then((result) => {
+    // Initialize RBAC (automatically creates standard permissions)
+    RBAC.init({
+      db: result.connection, // or real MongoDB
+      authAdapter: async (req) => {
+        // Extract user identity from JWT or session
+        // This would typically decode a JWT token
+        return {
+          user_id: req.headers['user-id'], // Your auth system provides this
+          email: req.headers['user-email']
+        };
+      },
+      onUserRegister: (user) => {
+        console.log('User registered in RBAC:', user);
+      },
+      onRoleUpdate: (payload) => {
+        console.log('Role updated:', payload);
+      },
+      defaultRole: 'user' // Auto-assign 'user' role to new signups
+    }).then(() => {
+      app.listen(3000, '0.0.0.0', () => {
+        console.info(`connected to db and app listening on port ${3000}`);
+      });
+    });
+  })
+  .catch((err) => {
+    console.error('Error connecting to MongoDB:', err);
+  });
 
 // Protect routes with auto-inferred permissions
 app.get('/billing/invoices', RBAC.checkPermissions(), (req, res) => {
@@ -63,8 +82,6 @@ app.use('/admin', RBAC.adminDashboard({
   user: 'admin',
   pass: 'secure-password'
 }));
-
-app.listen(3000);
 ```
 
 ## 📖 Core Concepts
