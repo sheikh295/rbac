@@ -21,7 +21,7 @@ A powerful, plug-and-play **Role-Based Access Control (RBAC)** package for Node.
 ### Installation
 
 ```bash
-npm install @your-org/rbac-system
+npm install @sheikh295/rbac
 ```
 
 ### Basic Setup
@@ -29,7 +29,7 @@ npm install @your-org/rbac-system
 ```javascript
 const express = require('express');
 const mongoose = require('mongoose');
-const { RBAC } = require('@your-org/rbac-system');
+const { RBAC } = require('@sheikh295/rbac');
 
 const app = express();
 app.use(express.json());
@@ -266,7 +266,7 @@ const hasPermission = await RBAC.checkUserPermission(
 Full TypeScript definitions included:
 
 ```typescript
-import { RBAC, RBACConfig, PermissionCheckOptions } from '@your-org/rbac-system';
+import { RBAC, RBACConfig, PermissionCheckOptions } from '@sheikh295/rbac';
 
 const config: RBACConfig = {
   db: mongoose.connection,
@@ -295,8 +295,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🆘 Support
 
 - 📖 [Documentation](https://your-org.github.io/rbac-system)
-- 🐛 [Issue Tracker](https://github.com/your-org/rbac-system/issues)
-- 💬 [Discussions](https://github.com/your-org/rbac-system/discussions)
+- 🐛 [Issue Tracker](https://github.com/sheikh295/rbac/issues)
+- 💬 [Discussions](https://github.com/sheikh295/rbac/discussions)
 
 ## 🎯 Roadmap
 
