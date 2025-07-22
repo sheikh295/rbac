@@ -101,9 +101,9 @@ export const createAdminRouter = (): Router => {
         if (!role) {
           return res.status(404).json({ error: 'Role not found' });
         }
-        user.role = role._id;
+        user.role = role.id;
       } else {
-        user.role = null;
+        return res.status(404).json({ error: 'Role not found' });
       }
       
       await user.save();
