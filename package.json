@@ -1,0 +1,60 @@
+{
+  "name": "@your-org/rbac-system",
+  "version": "1.0.0",
+  "description": "A reusable RBAC (Role-Based Access Control) package for Node.js with Express middleware, MongoDB integration, and optional admin dashboard",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md",
+    "CLAUDE.md"
+  ],
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "prepublish": "npm run build",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sheikh295/rbac.git"
+  },
+  "keywords": [
+    "rbac",
+    "role-based-access-control",
+    "express",
+    "middleware",
+    "permissions",
+    "mongodb",
+    "typescript",
+    "authentication",
+    "authorization"
+  ],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/sheikh295/rbac/issues"
+  },
+  "homepage": "https://github.com/sheikh295/rbac#readme",
+  "peerDependencies": {
+    "express": ">=4.0.0",
+    "mongoose": ">=6.0.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.3",
+    "@types/node": "^24.0.15",
+    "express": "^5.1.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.0",
+    "mongoose": "^8.16.4"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
