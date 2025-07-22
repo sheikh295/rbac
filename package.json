@@ -1,5 +1,5 @@
 {
-  "name": "@your-org/rbac-system",
+  "name": "@sheikh295/rbac",
   "version": "1.0.0",
   "description": "A reusable RBAC (Role-Based Access Control) package for Node.js with Express middleware, MongoDB integration, and optional admin dashboard",
   "main": "dist/index.js",
@@ -30,7 +30,7 @@
     "authentication",
     "authorization"
   ],
-  "author": "",
+  "author": "Muhammad Mamoor Ali",
   "license": "MIT",
   "type": "commonjs",
   "bugs": {

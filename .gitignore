@@ -167,3 +167,4 @@ temp/
 *.dump
 .env.example
 .env.sample
+CLAUDE.md
