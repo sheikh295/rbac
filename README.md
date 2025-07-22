@@ -34,8 +34,8 @@ const { RBAC } = require('@sheikh295/rbac');
 const app = express();
 app.use(express.json());
 
-// Initialize RBAC
-RBAC.init({
+// Initialize RBAC (automatically creates standard permissions)
+await RBAC.init({
   db: mongoose.connection,
   authAdapter: async (req) => ({
     user_id: req.user?.id, // Your auth system provides this
@@ -74,10 +74,22 @@ app.listen(3000);
 User → Role → Features → Permissions
 ```
 
-- **Users**: References to your app's users (by user_id)
-- **Roles**: Collections of features with specific permissions
-- **Features**: Application modules (billing, users, reports)
-- **Permissions**: Granular access rights (read, create, update, delete, sudo)
+- **Users**: References to your app's users (by user_id) - stored in `RbacUsers` collection
+- **Roles**: Collections of features with specific permissions - stored in `RbacRoles` collection
+- **Features**: Application modules (billing, users, reports) - stored in `RbacFeatures` collection  
+- **Permissions**: Granular access rights (read, create, update, delete, sudo) - stored in `RbacPermissions` collection
+
+> **Note**: All collections use `Rbac*` prefixes to avoid conflicts with your existing database tables.
+
+### 🚀 **Auto-Created Permissions**
+
+When you initialize RBAC, these 5 standard permissions are automatically created if they don't exist:
+
+- **`read`** - View and access resources
+- **`create`** - Add new resources  
+- **`update`** - Modify existing resources
+- **`delete`** - Remove resources
+- **`sudo`** - Full administrative access
 
 ### 🔍 Auto-Permission Inference
 
@@ -96,13 +108,15 @@ The middleware automatically infers permissions from your routes:
 ### Initialization
 
 ```typescript
-RBAC.init({
+await RBAC.init({
   db: mongoose.connection,
   authAdapter?: (req) => ({ user_id: string, email?: string }),
   onUserRegister?: (user) => void,
   onRoleUpdate?: (payload) => void
 });
 ```
+
+> **Note**: `init()` is now async and automatically creates the 5 standard permissions (read, create, update, delete, sudo) if they don't exist.
 
 ### Middleware
 
@@ -177,7 +191,7 @@ app.use('/rbac-admin', RBAC.adminDashboard({
 ```typescript
 const jwt = require('jsonwebtoken');
 
-RBAC.init({
+await RBAC.init({
   db: mongoose.connection,
   authAdapter: async (req) => {
     const token = req.headers.authorization?.split(' ')[1];
@@ -193,7 +207,7 @@ RBAC.init({
 ### With Passport.js
 
 ```typescript
-RBAC.init({
+await RBAC.init({
   db: mongoose.connection,
   authAdapter: async (req) => ({
     user_id: req.user.id,
@@ -243,6 +257,7 @@ await RBAC.controllers.userRole.createRole(
 3. **Regular Audits**: Review roles and permissions regularly
 4. **Principle of Least Privilege**: Grant minimal necessary permissions
 5. **Session Management**: Implement proper session handling
+6. **Database Isolation**: RBAC uses separate `Rbac*` collections to avoid conflicts with your data
 
 ## 🧪 Testing
 
@@ -275,7 +290,7 @@ const config: RBACConfig = {
   })
 };
 
-RBAC.init(config);
+await RBAC.init(config);
 ```
 
 ## 🤝 Contributing

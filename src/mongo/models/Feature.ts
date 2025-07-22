@@ -14,8 +14,8 @@ const featureSchema = new Schema<IFeature>(
   },
   {
     timestamps: true,
-    collection: "Features",
+    collection: "RbacFeatures",
   }
 );
 
-export const Feature = model<IFeature>("Feature", featureSchema, "Features");
+export const Feature = model<IFeature>("RbacFeature", featureSchema, "RbacFeatures");

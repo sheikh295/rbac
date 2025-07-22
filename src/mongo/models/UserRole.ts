@@ -21,15 +21,15 @@ const userRoleSchema = new Schema<IUserRole>(
     description: { type: String, required: true },
     features: [
       {
-        feature: { type: Schema.Types.ObjectId, ref: "Feature" },
-        permissions: [{ type: Schema.Types.ObjectId, ref: "Permission" }],
+        feature: { type: Schema.Types.ObjectId, ref: "RbacFeature" },
+        permissions: [{ type: Schema.Types.ObjectId, ref: "RbacPermission" }],
       },
     ],
   },
   {
     timestamps: true,
-    collection: "UserRoles",
+    collection: "RbacRoles",
   }
 );
 
-export const UserRole = model<IUserRole>("UserRole", userRoleSchema, "UserRoles");
+export const UserRole = model<IUserRole>("RbacRole", userRoleSchema, "RbacRoles");

@@ -14,8 +14,8 @@ const permissionSchema = new Schema<IPermission>(
   },
   {
     timestamps: true,
-    collection: "Permissions",
+    collection: "RbacPermissions",
   }
 );
 
-export const Permission = model<IPermission>("Permission", permissionSchema, "Permissions");
+export const Permission = model<IPermission>("RbacPermission", permissionSchema, "RbacPermissions");

@@ -12,7 +12,7 @@ class RBACSystem {
   private config: RBACConfig | null = null;
   private initialized = false;
 
-  init(config: RBACConfig): void {
+  async init(config: RBACConfig): Promise<void> {
     this.config = config;
     this.initialized = true;
 
@@ -20,6 +20,33 @@ class RBACSystem {
     if (config.db) {
       // Use the provided connection
       console.log("RBAC initialized with provided MongoDB connection");
+      
+      // Auto-create standard permissions if they don't exist
+      await this.createStandardPermissions();
+    }
+  }
+
+  private async createStandardPermissions(): Promise<void> {
+    try {
+      const standardPermissions = [
+        { name: 'read', description: 'View and access resources' },
+        { name: 'create', description: 'Add new resources' },
+        { name: 'update', description: 'Modify existing resources' },
+        { name: 'delete', description: 'Remove resources' },
+        { name: 'sudo', description: 'Full administrative access' }
+      ];
+
+      for (const permissionData of standardPermissions) {
+        const existingPermission = await Permission.findOne({ name: permissionData.name });
+        
+        if (!existingPermission) {
+          const permission = new Permission(permissionData);
+          await permission.save();
+          console.log(`✅ Created standard permission: ${permissionData.name}`);
+        }
+      }
+    } catch (error) {
+      console.warn('Warning: Could not auto-create standard permissions:', (error as Error).message);
     }
   }
 
