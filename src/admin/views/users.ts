@@ -46,16 +46,52 @@ export const getUsersListView = (users: any[], roles: any[], pagination?: any): 
     </div>
   `).join('');
 
-  // Simple pagination HTML
+  // Enhanced pagination HTML
   let paginationHtml = '';
   if (pagination && pagination.totalPages > 1) {
+    const searchParam = pagination.search || '';
+    let pageNumbers = '';
+    
+    // Generate page numbers with smart truncation
+    const currentPage = pagination.currentPage;
+    const totalPages = pagination.totalPages;
+    
+    // Always show first page
+    if (currentPage > 3) {
+      pageNumbers += `<a href="/rbac-admin/users?page=1&search=${searchParam}" class="pagination-btn">1</a>`;
+      if (currentPage > 4) {
+        pageNumbers += `<span class="pagination-btn" style="cursor: default;">...</span>`;
+      }
+    }
+    
+    // Show pages around current page
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(totalPages, currentPage + 2);
+    
+    for (let i = startPage; i <= endPage; i++) {
+      if (i === currentPage) {
+        pageNumbers += `<span class="pagination-btn active">${i}</span>`;
+      } else {
+        pageNumbers += `<a href="/rbac-admin/users?page=${i}&search=${searchParam}" class="pagination-btn">${i}</a>`;
+      }
+    }
+    
+    // Always show last page
+    if (currentPage < totalPages - 2) {
+      if (currentPage < totalPages - 3) {
+        pageNumbers += `<span class="pagination-btn" style="cursor: default;">...</span>`;
+      }
+      pageNumbers += `<a href="/rbac-admin/users?page=${totalPages}&search=${searchParam}" class="pagination-btn">${totalPages}</a>`;
+    }
+    
     paginationHtml = `
     <div class="pagination">
-      ${pagination.hasPrev ? `<a href="/rbac-admin/users?page=${pagination.currentPage - 1}&search=${pagination.search || ''}" class="pagination-btn">← Previous</a>` : ''}
-      ${pagination.hasNext ? `<a href="/rbac-admin/users?page=${pagination.currentPage + 1}&search=${pagination.search || ''}" class="pagination-btn">Next →</a>` : ''}
+      ${pagination.hasPrev ? `<a href="/rbac-admin/users?page=${currentPage - 1}&search=${searchParam}" class="pagination-btn">← Previous</a>` : ''}
+      ${pageNumbers}
+      ${pagination.hasNext ? `<a href="/rbac-admin/users?page=${currentPage + 1}&search=${searchParam}" class="pagination-btn">Next →</a>` : ''}
     </div>
     <div style="text-align: center; color: #718096; font-size: 14px; margin-top: 16px;">
-      Page ${pagination.currentPage} of ${pagination.totalPages} - ${pagination.totalUsers} users total
+      Showing ${((currentPage - 1) * pagination.limit) + 1} - ${Math.min(currentPage * pagination.limit, pagination.totalUsers)} of ${pagination.totalUsers} users
     </div>
     `;
   }
@@ -70,25 +106,41 @@ export const getUsersListView = (users: any[], roles: any[], pagination?: any): 
       </div>
       
       <div class="content-card-body">
-        <!-- Search Box -->
+        <!-- Search and Controls -->
         ${pagination ? `
         <div style="margin-bottom: 24px;">
-          <form method="GET" action="/rbac-admin/users" style="display: flex; gap: 12px; align-items: center;">
-            <input type="hidden" name="page" value="1">
-            <div style="position: relative; flex: 1; max-width: 400px;">
-              <input 
-                type="text" 
-                name="search" 
-                value="${pagination.search || ''}"
-                placeholder="Search users by ID, name, or email..." 
-                class="form-control"
-                style="padding-left: 40px;"
-              >
-              <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #718096;">🔍</span>
-            </div>
-            <button type="submit" class="btn">Search</button>
-            ${pagination.search ? `<a href="/rbac-admin/users" class="btn btn-secondary">Clear</a>` : ''}
-          </form>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <form method="GET" action="/rbac-admin/users" style="display: flex; gap: 12px; align-items: center;">
+              <input type="hidden" name="page" value="1">
+              <input type="hidden" name="limit" value="${pagination.limit}">
+              <div style="position: relative; flex: 1; max-width: 400px;">
+                <input 
+                  type="text" 
+                  name="search" 
+                  value="${pagination.search || ''}"
+                  placeholder="Search users by ID, name, or email..." 
+                  class="form-control"
+                  style="padding-left: 40px;"
+                >
+                <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #718096;">🔍</span>
+              </div>
+              <button type="submit" class="btn">Search</button>
+              ${pagination.search ? `<a href="/rbac-admin/users" class="btn btn-secondary">Clear</a>` : ''}
+            </form>
+            
+            <form method="GET" action="/rbac-admin/users" style="display: flex; gap: 8px; align-items: center;">
+              <input type="hidden" name="page" value="1">
+              <input type="hidden" name="search" value="${pagination.search || ''}">
+              <label style="font-size: 14px; color: #4a5568;">Show:</label>
+              <select name="limit" class="form-control" style="width: auto; padding: 6px 12px;" onchange="this.form.submit()">
+                <option value="5" ${pagination.limit === 5 ? 'selected' : ''}>5</option>
+                <option value="10" ${pagination.limit === 10 ? 'selected' : ''}>10</option>
+                <option value="25" ${pagination.limit === 25 ? 'selected' : ''}>25</option>
+                <option value="50" ${pagination.limit === 50 ? 'selected' : ''}>50</option>
+              </select>
+              <span style="font-size: 14px; color: #4a5568;">per page</span>
+            </form>
+          </div>
         </div>
         ` : ''}
 
