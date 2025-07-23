@@ -2,13 +2,12 @@
 
 A **revolutionary, fully dynamic** Role-Based Access Control (RBAC) package for Node.js applications with intelligent middleware, modern admin dashboard, and zero configuration constraints.
 
-[![npm version](https://badge.fury.io/js/%40sheikh295%2Frbac-system.svg)](https://badge.fury.io/js/%40sheikh295%2Frbac-system)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
 ## 📦 How do I install this?
 
 ```bash
-npm install @sheikh295/rbac
+npm install @mamoorali295/rbac
 ```
 
 ## 🤔 Why should I choose this?
@@ -112,7 +111,7 @@ app.delete('/users/:id', RBAC.checkPermissions({
 ```javascript
 const express = require('express');
 const mongoose = require('mongoose');
-const { RBAC } = require('@sheikh295/rbac');
+const { RBAC } = require('@mamoorali295/rbac');
 
 const app = express();
 app.use(express.json());
@@ -324,7 +323,7 @@ The middleware automatically infers permissions from your routes:
 Full TypeScript definitions included with IntelliSense support:
 
 ```typescript
-import { RBAC, RBACConfig, PermissionCheckOptions } from '@sheikh295/rbac';
+import { RBAC, RBACConfig, PermissionCheckOptions } from '@mamoorali295/rbac';
 
 const config: RBACConfig = {
   db: mongoose.connection,

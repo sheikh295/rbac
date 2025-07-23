@@ -1,5 +1,5 @@
 {
-  "name": "@sheikh295/rbac",
+  "name": "@mamoorali295/rbac",
   "version": "1.0.0",
   "description": "A reusable RBAC (Role-Based Access Control) package for Node.js with Express middleware, MongoDB integration, and optional admin dashboard",
   "main": "dist/index.js",
