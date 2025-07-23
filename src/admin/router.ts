@@ -1,12 +1,6 @@
 import { Request, Response, Router } from 'express';
 import express from 'express';
-import { User } from '../mongo/models/User';
-import { UserRole } from '../mongo/models/UserRole';
-import { Feature } from '../mongo/models/Feature';
-import { Permission } from '../mongo/models/Permission';
-import { userRoleController } from '../mongo/controllers/userrole.controller';
-import { featureController } from '../mongo/controllers/feature.controller';
-import { Types } from 'mongoose';
+import { DatabaseAdapter } from '../adapters/DatabaseAdapter';
 
 import { getDashboardView } from './views/dashboard';
 import { getUsersListView, getUserDetailsView } from './views/users';
@@ -14,26 +8,12 @@ import { getRolesListView, getRoleDetailsView } from './views/roles';
 import { getFeaturesListView, getFeatureDetailsView } from './views/features';
 import { getPermissionsListView, getPermissionDetailsView } from './views/permissions';
 
-export const createAdminRouter = (): Router => {
+export const createAdminRouter = (dbAdapter: DatabaseAdapter): Router => {
   const router = Router();
 
   router.get('/', async (req: Request, res: Response) => {
     try {
-      // Get counts for dashboard stats
-      const [usersCount, rolesCount, featuresCount, permissionsCount] = await Promise.all([
-        User.countDocuments(),
-        UserRole.countDocuments(),
-        Feature.countDocuments(),
-        Permission.countDocuments()
-      ]);
-
-      const stats = {
-        users: usersCount,
-        roles: rolesCount,
-        features: featuresCount,
-        permissions: permissionsCount
-      };
-
+      const stats = await dbAdapter.getDashboardStats();
       res.send(getDashboardView(stats));
     } catch (error) {
       const stats = { users: 0, roles: 0, features: 0, permissions: 5 };
@@ -43,18 +23,9 @@ export const createAdminRouter = (): Router => {
 
   router.get('/api/stats', async (req: Request, res: Response) => {
     try {
-      const [usersCount, rolesCount, featuresCount, permissionsCount] = await Promise.all([
-        User.countDocuments(),
-        UserRole.countDocuments(),
-        Feature.countDocuments(),
-        Permission.countDocuments()
-      ]);
-
+      const stats = await dbAdapter.getDashboardStats();
       res.json({
-        users: usersCount,
-        roles: rolesCount,
-        features: featuresCount,
-        permissions: permissionsCount,
+        ...stats,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
@@ -72,35 +43,20 @@ export const createAdminRouter = (): Router => {
       const search = req.query.search as string || '';
       const skip = (page - 1) * limit;
 
-      const searchQuery: any = {};
-      if (search) {
-        searchQuery.$or = [
-          { user_id: { $regex: search, $options: 'i' } },
-          { name: { $regex: search, $options: 'i' } },
-          { email: { $regex: search, $options: 'i' } }
-        ];
-      }
-
-      const totalUsers = await User.countDocuments(searchQuery);
-      const users = await User.find(searchQuery)
-        .populate('role')
-        .skip(skip)
-        .limit(limit)
-        .exec();
-      
-      const roles = await UserRole.find().exec();
+      const usersResult = await dbAdapter.getAllUsers(limit, skip, search);
+      const rolesResult = await dbAdapter.getAllRoles();
       
       const pagination = {
         currentPage: page,
-        totalPages: Math.ceil(totalUsers / limit),
-        totalUsers,
-        hasNext: page < Math.ceil(totalUsers / limit),
+        totalPages: Math.ceil(usersResult.total / limit),
+        totalUsers: usersResult.total,
+        hasNext: page < Math.ceil(usersResult.total / limit),
         hasPrev: page > 1,
         limit,
         search
       };
       
-      res.send(getUsersListView(users, roles, pagination));
+      res.send(getUsersListView(usersResult.items, rolesResult.items, pagination));
     } catch (error) {
       res.status(500).send('Error loading users: ' + (error as Error).message);
     }
@@ -108,19 +64,14 @@ export const createAdminRouter = (): Router => {
 
   router.get('/users/:userId', async (req: Request, res: Response) => {
     try {
-      const user = await User.findOne({ user_id: req.params.userId }).populate({
-        path: 'role',
-        populate: {
-          path: 'features.feature features.permissions'
-        }
-      }).exec();
+      const user = await dbAdapter.findUserByUserIdWithRole(req.params.userId);
       
       if (!user) {
         return res.status(404).send('User not found');
       }
       
-      const roles = await UserRole.find().exec();
-      res.send(getUserDetailsView(user, roles));
+      const rolesResult = await dbAdapter.getAllRoles();
+      res.send(getUserDetailsView(user, rolesResult.items));
     } catch (error) {
       res.status(500).send('Error loading user: ' + (error as Error).message);
     }
@@ -130,13 +81,12 @@ export const createAdminRouter = (): Router => {
     try {
       const { user_id, name, email } = req.body;
       
-      const existingUser = await User.findOne({ user_id });
+      const existingUser = await dbAdapter.findUserByUserId(user_id);
       if (existingUser) {
         return res.status(400).json({ error: 'User already exists' });
       }
       
-      const user = new User({ user_id, name, email });
-      await user.save();
+      await dbAdapter.createUser({ user_id, name, email });
       res.redirect('/rbac-admin/users');
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -146,10 +96,7 @@ export const createAdminRouter = (): Router => {
   router.post('/users/:userId/update', async (req: Request, res: Response) => {
     try {
       const { name, email } = req.body;
-      await User.findOneAndUpdate(
-        { user_id: req.params.userId },
-        { name, email }
-      );
+      await dbAdapter.updateUser(req.params.userId, { name, email });
       res.redirect(`/rbac-admin/users/${req.params.userId}`);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -159,23 +106,22 @@ export const createAdminRouter = (): Router => {
   router.post('/users/:userId/assign-role', async (req: Request, res: Response) => {
     try {
       const { roleName } = req.body;
-      const user = await User.findOne({ user_id: req.params.userId });
+      const user = await dbAdapter.findUserByUserId(req.params.userId);
       
       if (!user) {
         return res.status(404).json({ error: 'User not found' });
       }
       
       if (roleName) {
-        const role = await UserRole.findOne({ name: roleName });
+        const role = await dbAdapter.findRoleByName(roleName);
         if (!role) {
           return res.status(404).json({ error: 'Role not found' });
         }
-        user.role = role.id;
+        await dbAdapter.updateUser(req.params.userId, { role_id: role.id });
       } else {
         return res.status(404).json({ error: 'Role not found' });
       }
       
-      await user.save();
       res.redirect(req.get('Referer') || '/rbac-admin/users');
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -184,7 +130,7 @@ export const createAdminRouter = (): Router => {
 
   router.post('/users/:userId/delete', async (req: Request, res: Response) => {
     try {
-      await User.findByIdAndDelete(req.params.userId);
+      await dbAdapter.deleteUser(req.params.userId);
       res.json({ message: 'User deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -193,10 +139,10 @@ export const createAdminRouter = (): Router => {
 
   router.get('/roles', async (req: Request, res: Response) => {
     try {
-      const roles = await UserRole.find().populate('features.feature features.permissions').exec();
-      const features = await Feature.find().exec();
-      const permissions = await Permission.find().exec();
-      res.send(getRolesListView(roles, features, permissions));
+      const rolesResult = await dbAdapter.getAllRoles();
+      const featuresResult = await dbAdapter.getAllFeatures();
+      const permissionsResult = await dbAdapter.getAllPermissions();
+      res.send(getRolesListView(rolesResult.items, featuresResult.items, permissionsResult.items));
     } catch (error) {
       res.status(500).send('Error loading roles: ' + (error as Error).message);
     }
@@ -204,14 +150,14 @@ export const createAdminRouter = (): Router => {
 
   router.get('/roles/:roleId', async (req: Request, res: Response) => {
     try {
-      const role = await UserRole.findById(req.params.roleId).populate('features.feature features.permissions').exec();
+      const role = await dbAdapter.findRoleByIdWithFeatures(req.params.roleId);
       if (!role) {
         return res.status(404).send('Role not found');
       }
       
-      const features = await Feature.find().exec();
-      const permissions = await Permission.find().exec();
-      res.send(getRoleDetailsView(role, features, permissions));
+      const featuresResult = await dbAdapter.getAllFeatures();
+      const permissionsResult = await dbAdapter.getAllPermissions();
+      res.send(getRoleDetailsView(role, featuresResult.items, permissionsResult.items));
     } catch (error) {
       res.status(500).send('Error loading role: ' + (error as Error).message);
     }
@@ -219,16 +165,15 @@ export const createAdminRouter = (): Router => {
 
   router.post('/roles/create', async (req: Request, res: Response) => {
     try {
-      const { name, description, features } = req.body;
+      const { name, description } = req.body;
       
-      const featuresArray = features || [];
-      
-      const result = await userRoleController.createRole(name, description, featuresArray);
-      if (result.error) {
-        return res.status(400).json(result);
+      const existingRole = await dbAdapter.findRoleByName(name);
+      if (existingRole) {
+        return res.status(400).json({ error: 'Role already exists' });
       }
       
-      res.json(result);
+      await dbAdapter.createRole({ name, description });
+      res.redirect('/rbac-admin/roles');
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
@@ -236,62 +181,21 @@ export const createAdminRouter = (): Router => {
 
   router.post('/roles/:roleId/delete', async (req: Request, res: Response) => {
     try {
-      const result = await userRoleController.deleteRole(req.params.roleId);
-      res.json(result);
+      await dbAdapter.deleteRole(req.params.roleId);
+      res.json({ success: true, message: 'Role deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
   });
 
-  router.post('/roles/:roleId/add-features', async (req: Request, res: Response) => {
+  // TODO: Implement complex role management routes for both MongoDB and PostgreSQL
+  // These routes need specialized implementation for role-feature-permission relationships
+  
+  router.post('/roles/:roleId/assign-features', async (req: Request, res: Response) => {
     try {
-      const { featureIds } = req.body;
-      
-      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
-      
-      const result = await userRoleController.addFeatureToUserRole(req.params.roleId, featureIdsArray);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
-    }
-  });
-
-  router.post('/roles/:roleId/remove-features', async (req: Request, res: Response) => {
-    try {
-      const { featureIds } = req.body;
-      
-      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
-      
-      const result = await userRoleController.removeFeatureFromUserRole(req.params.roleId, featureIdsArray);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
-    }
-  });
-
-  router.post('/roles/:roleId/add-permissions', async (req: Request, res: Response) => {
-    try {
-      const { featureIds, permissionIds } = req.body;
-      
-      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
-      const permissionIdsArray = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
-      
-      const result = await userRoleController.addPermissionToFeatureInUserRole(req.params.roleId, featureIdsArray, permissionIdsArray);
-      res.json(result);
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
-    }
-  });
-
-  router.post('/roles/:roleId/remove-permissions', async (req: Request, res: Response) => {
-    try {
-      const { featureIds, permissionIds } = req.body;
-      
-      const featureIdsArray = Array.isArray(featureIds) ? featureIds : [featureIds];
-      const permissionIdsArray = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
-      
-      const result = await userRoleController.removePermissionToFeatureInUserRole(req.params.roleId, featureIdsArray, permissionIdsArray);
-      res.json(result);
+      const { featurePermissions } = req.body; // Format: [{ feature_id, permission_ids }]
+      await dbAdapter.assignRoleFeaturePermissions(req.params.roleId, featurePermissions);
+      res.json({ success: true, message: 'Role features updated successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
@@ -299,8 +203,8 @@ export const createAdminRouter = (): Router => {
 
   router.get('/features', async (req: Request, res: Response) => {
     try {
-      const features = await Feature.find().exec();
-      res.send(getFeaturesListView(features));
+      const featuresResult = await dbAdapter.getAllFeatures();
+      res.send(getFeaturesListView(featuresResult.items));
     } catch (error) {
       res.status(500).send('Error loading features: ' + (error as Error).message);
     }
@@ -308,13 +212,13 @@ export const createAdminRouter = (): Router => {
 
   router.get('/features/:featureId', async (req: Request, res: Response) => {
     try {
-      const feature = await Feature.findById(req.params.featureId).exec();
+      const feature = await dbAdapter.findFeatureById(req.params.featureId);
       if (!feature) {
         return res.status(404).send('Feature not found');
       }
       
-      const roles = await UserRole.find().populate('features.feature features.permissions').exec();
-      res.send(getFeatureDetailsView(feature, roles));
+      const rolesResult = await dbAdapter.getAllRoles();
+      res.send(getFeatureDetailsView(feature, rolesResult.items));
     } catch (error) {
       res.status(500).send('Error loading feature: ' + (error as Error).message);
     }
@@ -323,12 +227,13 @@ export const createAdminRouter = (): Router => {
   router.post('/features/create', async (req: Request, res: Response) => {
     try {
       const { name, description } = req.body;
-      const result = await featureController.createFeature(name, description);
       
-      if (result.error) {
-        return res.status(400).json(result);
+      const existing = await dbAdapter.findFeatureByName(name);
+      if (existing) {
+        return res.status(400).json({ error: 'Feature already exists' });
       }
       
+      await dbAdapter.createFeature({ name, description });
       res.redirect('/rbac-admin/features');
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -338,8 +243,8 @@ export const createAdminRouter = (): Router => {
   router.post('/features/:featureId/update', async (req: Request, res: Response) => {
     try {
       const { name, description } = req.body;
-      const result = await featureController.updateFeature(req.params.featureId, name, description);
-      res.json(result);
+      await dbAdapter.updateFeature(req.params.featureId, { name, description });
+      res.json({ success: true, message: 'Feature updated successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
@@ -347,8 +252,8 @@ export const createAdminRouter = (): Router => {
 
   router.post('/features/:featureId/delete', async (req: Request, res: Response) => {
     try {
-      const result = await featureController.deleteFeature(req.params.featureId);
-      res.json(result);
+      await dbAdapter.deleteFeature(req.params.featureId);
+      res.json({ success: true, message: 'Feature deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
@@ -356,8 +261,8 @@ export const createAdminRouter = (): Router => {
 
   router.get('/permissions', async (req: Request, res: Response) => {
     try {
-      const permissions = await Permission.find().exec();
-      res.send(getPermissionsListView(permissions));
+      const permissionsResult = await dbAdapter.getAllPermissions();
+      res.send(getPermissionsListView(permissionsResult.items));
     } catch (error) {
       res.status(500).send('Error loading permissions: ' + (error as Error).message);
     }
@@ -365,13 +270,13 @@ export const createAdminRouter = (): Router => {
 
   router.get('/permissions/:permissionId', async (req: Request, res: Response) => {
     try {
-      const permission = await Permission.findById(req.params.permissionId).exec();
+      const permission = await dbAdapter.findPermissionById(req.params.permissionId);
       if (!permission) {
         return res.status(404).send('Permission not found');
       }
       
-      const roles = await UserRole.find().populate('features.feature features.permissions').exec();
-      res.send(getPermissionDetailsView(permission, roles));
+      const rolesResult = await dbAdapter.getAllRoles();
+      res.send(getPermissionDetailsView(permission, rolesResult.items));
     } catch (error) {
       res.status(500).send('Error loading permission: ' + (error as Error).message);
     }
@@ -381,13 +286,12 @@ export const createAdminRouter = (): Router => {
     try {
       const { name, description } = req.body;
       
-      const existingPermission = await Permission.findOne({ name });
+      const existingPermission = await dbAdapter.findPermissionByName(name);
       if (existingPermission) {
         return res.status(400).json({ error: 'Permission already exists' });
       }
       
-      const permission = new Permission({ name, description });
-      await permission.save();
+      await dbAdapter.createPermission({ name, description });
       res.redirect('/rbac-admin/permissions');
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -400,11 +304,10 @@ export const createAdminRouter = (): Router => {
       const createdPermissions = [];
       
       for (const perm of permissions) {
-        const existingPermission = await Permission.findOne({ name: perm.name });
+        const existingPermission = await dbAdapter.findPermissionByName(perm.name);
         if (!existingPermission) {
-          const permission = new Permission(perm);
-          await permission.save();
-          createdPermissions.push(permission);
+          const created = await dbAdapter.createPermission(perm);
+          createdPermissions.push(created);
         }
       }
       
@@ -420,7 +323,7 @@ export const createAdminRouter = (): Router => {
   router.post('/permissions/:permissionId/update', async (req: Request, res: Response) => {
     try {
       const { name, description } = req.body;
-      await Permission.findByIdAndUpdate(req.params.permissionId, { name, description });
+      await dbAdapter.updatePermission(req.params.permissionId, { name, description });
       res.json({ message: 'Permission updated successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
@@ -429,7 +332,7 @@ export const createAdminRouter = (): Router => {
 
   router.post('/permissions/:permissionId/delete', async (req: Request, res: Response) => {
     try {
-      await Permission.findByIdAndDelete(req.params.permissionId);
+      await dbAdapter.deletePermission(req.params.permissionId);
       res.json({ message: 'Permission deleted successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });

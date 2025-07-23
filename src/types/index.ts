@@ -1,12 +1,43 @@
 import { Request } from "express";
 import { Connection } from "mongoose";
+import { Pool } from "pg";
+
+/**
+ * Supported database types for the RBAC system.
+ */
+export type DatabaseType = 'mongodb' | 'postgresql';
+
+/**
+ * Database configuration for MongoDB.
+ */
+export interface MongoDBConfig {
+  /** Database type identifier */
+  type: 'mongodb';
+  /** MongoDB connection instance */
+  connection: Connection;
+}
+
+/**
+ * Database configuration for PostgreSQL.
+ */
+export interface PostgreSQLConfig {
+  /** Database type identifier */
+  type: 'postgresql';
+  /** PostgreSQL connection pool instance */
+  connection: Pool;
+}
+
+/**
+ * Union type for all supported database configurations.
+ */
+export type DatabaseConfig = MongoDBConfig | PostgreSQLConfig;
 
 /**
  * Configuration object for initializing the RBAC system.
  */
 export interface RBACConfig {
-  /** MongoDB connection instance */
-  db: Connection;
+  /** Database configuration object */
+  database: DatabaseConfig;
   /** Function to extract user identity from Express request */
   authAdapter?: (req: Request) => Promise<{ user_id: string; email?: string }> | { user_id: string; email?: string };
   /** Hook called when a new user is registered */
@@ -15,6 +46,9 @@ export interface RBACConfig {
   onRoleUpdate?: (payload: { user_id: string; role: string }) => void | Promise<void>;
   /** Default role name to assign to new users automatically */
   defaultRole?: string;
+
+  /** @deprecated Use database.connection instead */
+  db?: Connection;
 }
 
 /**

@@ -1,10 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import { Connection } from "mongoose";
 import { RBACConfig, PermissionCheckOptions, RegisterUserOptions, AdminDashboardOptions, UserReference } from "./types";
-import { User } from "./mongo/models/User";
-import { UserRole } from "./mongo/models/UserRole";
-import { Feature } from "./mongo/models/Feature";
-import { Permission } from "./mongo/models/Permission";
+import { DatabaseAdapter } from "./adapters/DatabaseAdapter";
+import { MongoAdapter } from "./adapters/MongoAdapter";
+import { PostgresAdapter } from "./adapters/PostgresAdapter";
 import { userRoleController } from "./mongo/controllers/userrole.controller";
 import { featureController } from "./mongo/controllers/feature.controller";
 
@@ -17,6 +16,7 @@ import { featureController } from "./mongo/controllers/feature.controller";
 class RBACSystem {
   private config: RBACConfig | null = null;
   private initialized = false;
+  private dbAdapter: DatabaseAdapter | null = null;
 
   /**
    * Initialize the RBAC system with the provided configuration.
@@ -28,6 +28,27 @@ class RBACSystem {
    * 
    * @example
    * ```typescript
+   * // MongoDB configuration
+   * await RBAC.init({
+   *   database: {
+   *     type: 'mongodb',
+   *     connection: mongoose.connection
+   *   },
+   *   authAdapter: async (req) => ({ user_id: req.user.id }),
+   *   defaultRole: 'user'
+   * });
+   * 
+   * // PostgreSQL configuration
+   * await RBAC.init({
+   *   database: {
+   *     type: 'postgresql',
+   *     connection: pgPool
+   *   },
+   *   authAdapter: async (req) => ({ user_id: req.user.id }),
+   *   defaultRole: 'user'
+   * });
+   * 
+   * // Legacy MongoDB configuration (deprecated)
    * await RBAC.init({
    *   db: mongoose.connection,
    *   authAdapter: async (req) => ({ user_id: req.user.id }),
@@ -37,41 +58,34 @@ class RBACSystem {
    */
   async init(config: RBACConfig): Promise<void> {
     this.config = config;
-    this.initialized = true;
-
-    if (config.db) {
-      await this.createStandardPermissions();
+    
+    // Handle legacy configuration format
+    if (config.db && !config.database) {
+      config.database = {
+        type: 'mongodb',
+        connection: config.db
+      };
     }
-  }
 
-  /**
-   * Creates standard RBAC permissions (read, create, update, delete, sudo) if they don't exist.
-   * Called automatically during initialization.
-   * 
-   * @private
-   * @returns {Promise<void>} Promise that resolves when permissions are created
-   */
-  private async createStandardPermissions(): Promise<void> {
-    try {
-      const standardPermissions = [
-        { name: 'read', description: 'View and access resources' },
-        { name: 'create', description: 'Add new resources' },
-        { name: 'update', description: 'Modify existing resources' },
-        { name: 'delete', description: 'Remove resources' },
-        { name: 'sudo', description: 'Full administrative access' }
-      ];
-
-      for (const permissionData of standardPermissions) {
-        const existingPermission = await Permission.findOne({ name: permissionData.name });
-        
-        if (!existingPermission) {
-          const permission = new Permission(permissionData);
-          await permission.save();
-        }
+    // Initialize database adapter based on configuration
+    if (config.database) {
+      switch (config.database.type) {
+        case 'mongodb':
+          this.dbAdapter = new MongoAdapter(config.database.connection);
+          break;
+        case 'postgresql':
+          this.dbAdapter = new PostgresAdapter(config.database.connection);
+          break;
+        default:
+          throw new Error(`Unsupported database type: ${(config.database as any).type}`);
       }
-    } catch (error) {
-      // Silent handling of permission creation errors
+
+      await this.dbAdapter.init();
+    } else {
+      throw new Error("Database configuration is required. Please provide either 'database' or 'db' in config.");
     }
+
+    this.initialized = true;
   }
 
   /**
@@ -81,7 +95,7 @@ class RBACSystem {
    * @throws {Error} If the system has not been initialized
    */
   private ensureInitialized(): void {
-    if (!this.initialized || !this.config) {
+    if (!this.initialized || !this.config || !this.dbAdapter) {
       throw new Error("RBAC system not initialized. Call RBAC.init(config) first.");
     }
   }
@@ -191,14 +205,7 @@ class RBACSystem {
 
         const { feature, permission } = options.feature && options.permission ? { feature: options.feature, permission: options.permission } : this.inferFeatureAndPermission(req);
 
-        const user = await User.findOne({ user_id })
-          .populate({
-            path: "role",
-            populate: {
-              path: "features.feature features.permissions",
-            },
-          })
-          .exec();
+        const user = await this.dbAdapter!.findUserByUserIdWithRole(user_id);
 
         if (!user) {
           return res.status(401).json({ error: "User not found in RBAC system" });
@@ -263,27 +270,25 @@ class RBACSystem {
           return res.status(400).json({ error: "user_id is required" });
         }
 
-        const existingUser = await User.findOne({ user_id: userData.user_id });
+        const existingUser = await this.dbAdapter!.findUserByUserId(userData.user_id);
         if (existingUser) {
           return res.status(409).json({ error: "User already registered in RBAC system" });
         }
 
-        let defaultRole = null;
+        let defaultRoleId = undefined;
         if (this.config!.defaultRole) {
-          const role = await UserRole.findOne({ name: this.config!.defaultRole });
+          const role = await this.dbAdapter!.findRoleByName(this.config!.defaultRole);
           if (role) {
-            defaultRole = role._id;
+            defaultRoleId = role.id;
           }
         }
 
-        const newUser = new User({
+        await this.dbAdapter!.createUser({
           user_id: userData.user_id,
           name: userData.name || "",
           email: userData.email || "",
-          role: defaultRole,
+          role_id: defaultRoleId,
         });
-
-        await newUser.save();
 
         if (this.config!.onUserRegister) {
           await this.config!.onUserRegister(userData);
@@ -318,27 +323,25 @@ class RBACSystem {
   async registerUserManual(user_id: string, userData: { name?: string; email?: string }): Promise<void> {
     this.ensureInitialized();
 
-    const existingUser = await User.findOne({ user_id });
+    const existingUser = await this.dbAdapter!.findUserByUserId(user_id);
     if (existingUser) {
       throw new Error("User already exists");
     }
 
-    let defaultRole = null;
+    let defaultRoleId = undefined;
     if (this.config!.defaultRole) {
-      const role = await UserRole.findOne({ name: this.config!.defaultRole });
+      const role = await this.dbAdapter!.findRoleByName(this.config!.defaultRole);
       if (role) {
-        defaultRole = role._id;
+        defaultRoleId = role.id;
       }
     }
 
-    const newUser = new User({
+    await this.dbAdapter!.createUser({
       user_id,
       name: userData.name || "",
       email: userData.email || "",
-      role: defaultRole,
+      role_id: defaultRoleId,
     });
-
-    await newUser.save();
 
     if (this.config!.onUserRegister) {
       await this.config!.onUserRegister({ user_id, ...userData });
@@ -366,15 +369,16 @@ class RBACSystem {
   async updateUser(user_id: string, userData: { name?: string; email?: string }): Promise<void> {
     this.ensureInitialized();
 
-    const user = await User.findOne({ user_id });
+    const user = await this.dbAdapter!.findUserByUserId(user_id);
     if (!user) {
       throw new Error("User not found");
     }
 
-    if (userData.name !== undefined) user.name = userData.name;
-    if (userData.email !== undefined) user.email = userData.email;
+    const updates: any = {};
+    if (userData.name !== undefined) updates.name = userData.name;
+    if (userData.email !== undefined) updates.email = userData.email;
 
-    await user.save();
+    await this.dbAdapter!.updateUser(user_id, updates);
   }
 
   /**
@@ -393,18 +397,17 @@ class RBACSystem {
   async assignRole(user_id: string, roleName: string): Promise<void> {
     this.ensureInitialized();
 
-    const user = await User.findOne({ user_id });
+    const user = await this.dbAdapter!.findUserByUserId(user_id);
     if (!user) {
       throw new Error("User not found");
     }
 
-    const role = await UserRole.findOne({ name: roleName });
+    const role = await this.dbAdapter!.findRoleByName(roleName);
     if (!role) {
       throw new Error("Role not found");
     }
 
-    user.role = role.id;
-    await user.save();
+    await this.dbAdapter!.updateUser(user_id, { role_id: role.id });
 
     if (this.config!.onRoleUpdate) {
       await this.config!.onRoleUpdate({ user_id, role: roleName });
@@ -426,7 +429,7 @@ class RBACSystem {
   async getUserRole(user_id: string): Promise<string | null> {
     this.ensureInitialized();
 
-    const user = await User.findOne({ user_id }).populate("role");
+    const user = await this.dbAdapter!.findUserByUserIdWithRole(user_id);
     if (!user || !user.role) {
       return null;
     }
@@ -450,25 +453,7 @@ class RBACSystem {
   async getFeaturePermissions(user_id: string, featureName: string): Promise<string[]> {
     this.ensureInitialized();
 
-    const user = await User.findOne({ user_id }).populate({
-      path: "role",
-      populate: {
-        path: "features.feature features.permissions",
-      },
-    });
-
-    if (!user || !user.role) {
-      return [];
-    }
-
-    const role = user.role as any;
-    const feature = role.features?.find((f: any) => f.feature.name === featureName);
-
-    if (!feature) {
-      return [];
-    }
-
-    return feature.permissions.map((p: any) => p.name);
+    return await this.dbAdapter!.getUserFeaturePermissions(user_id, featureName);
   }
 
   /**
@@ -547,6 +532,19 @@ class RBACSystem {
         return next();
       }
       
+      // Check if RBAC is initialized only when accessing protected routes
+      if (!this.initialized || !this.dbAdapter) {
+        return res.status(500).send(`
+          <html>
+            <body style="font-family: Arial, sans-serif; padding: 40px; text-align: center;">
+              <h1 style="color: #e74c3c;">RBAC System Not Initialized</h1>
+              <p>Please call <code>RBAC.init(config)</code> before accessing the admin dashboard.</p>
+              <p style="color: #7f8c8d;">The dashboard will be available once RBAC is properly initialized.</p>
+            </body>
+          </html>
+        `);
+      }
+      
       if (!(req.session as any)?.authenticated) {
         return res.redirect(req.baseUrl + '/login');
       }
@@ -554,8 +552,14 @@ class RBACSystem {
       next();
     });
     
-    const adminRouter = createAdminRouter();
-    dashboardRouter.use('/', adminRouter);
+    // Create a lazy-loaded admin router that gets the dbAdapter when needed
+    dashboardRouter.use('/', (req: Request, res: Response, next: NextFunction) => {
+      if (!this.dbAdapter) {
+        return res.status(500).send('RBAC system not initialized');
+      }
+      const adminRouter = createAdminRouter(this.dbAdapter);
+      adminRouter(req, res, next);
+    });
     
     return dashboardRouter;
   }

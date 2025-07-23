@@ -3,6 +3,8 @@
 A **revolutionary, fully dynamic** Role-Based Access Control (RBAC) package for Node.js applications with intelligent middleware, modern admin dashboard, and zero configuration constraints.
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
+[![MongoDB](https://img.shields.io/badge/MongoDB-Supported-green.svg)](https://www.mongodb.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Supported-blue.svg)](https://www.postgresql.org/)
 
 ## 📦 How do I install this?
 
@@ -50,6 +52,15 @@ While other libraries make you build your own admin interface, we provide a **pr
 - 🔐 **Permission assignment** - Granular control over what each role can do
 - 📊 **Live statistics** - Real-time dashboard with database counts
 
+### **🗄️ Multi-Database Support**
+Works seamlessly with your preferred database through unified adapter pattern:
+
+- 🍃 **MongoDB** - Document-based storage with nested role structures
+- 🐘 **PostgreSQL** - Relational database with ACID compliance and foreign key constraints
+- 🔄 **Identical API** - Same methods and admin dashboard regardless of database choice
+- 📊 **Performance Optimized** - Database-specific query optimizations for each platform
+- 🚀 **Easy Migration** - Switch databases without changing application code
+
 ### **🔧 Zero Configuration Constraints**
 Create roles with **ANY custom names** you want - `PowerUser`, `BillingTeam`, `ReadOnlyAuditor`, or `CustomRole123`. Unlike other libraries that force predefined roles, our system gives you complete freedom to design your permission structure exactly how your business needs it.
 
@@ -65,6 +76,7 @@ Create roles with **ANY custom names** you want - `PowerUser`, `BillingTeam`, `R
 | **Search & Filter** | ✅ Advanced search built-in | ❌ Manual implementation |
 | **Permission Logic** | ✅ `role → feature → permission` | ❌ `role → route` mapping |
 | **Dynamic Roles** | ✅ Create/modify anytime | ❌ Fixed role structure |
+| **Database Support** | ✅ MongoDB + PostgreSQL | ❌ Usually single DB only |
 
 ### **Real-World Example: Traditional vs Our Approach**
 
@@ -108,6 +120,7 @@ app.delete('/users/:id', RBAC.checkPermissions({
 
 ### Step 1: Basic Setup & Initialization
 
+#### 🍃 **MongoDB Setup**
 ```javascript
 const express = require('express');
 const mongoose = require('mongoose');
@@ -119,17 +132,56 @@ app.use(express.json());
 // Connect to MongoDB and initialize RBAC
 mongoose.connect('mongodb://localhost:27017/your-app')
   .then(async (result) => {
-    // Simple initialization
     await RBAC.init({
-      db: result.connection,
+      database: {
+        type: 'mongodb',
+        connection: result.connection
+      },
       authAdapter: async (req) => ({
         user_id: req.user?.id || req.headers['user-id']
       })
     });
 
-    app.listen(3000, () => console.log('🚀 Server running with RBAC!'));
+    app.listen(3000, () => console.log('🚀 Server running with RBAC + MongoDB!'));
   });
 ```
+
+#### 🐘 **PostgreSQL Setup**
+```javascript
+const express = require('express');
+const { Pool } = require('pg');
+const { RBAC } = require('@mamoorali295/rbac');
+
+const app = express();
+app.use(express.json());
+
+// PostgreSQL connection pool
+const pgPool = new Pool({
+  user: 'your_username',
+  host: 'localhost',
+  database: 'your_database', 
+  password: 'your_password',
+  port: 5432,
+});
+
+// Initialize RBAC with PostgreSQL
+pgPool.connect()
+  .then(async () => {
+    await RBAC.init({
+      database: {
+        type: 'postgresql',
+        connection: pgPool
+      },
+      authAdapter: async (req) => ({
+        user_id: req.user?.id || req.headers['user-id']
+      })
+    });
+
+    app.listen(3000, () => console.log('🚀 Server running with RBAC + PostgreSQL!'));
+  });
+```
+
+> **💡 Pro Tip**: The RBAC system automatically creates database schema and standard permissions during initialization!
 
 ### Step 2: User Registration
 
@@ -295,9 +347,28 @@ When you initialize RBAC, these 5 standard permissions are automatically created
 Configure automatic role assignment for new users:
 
 ```javascript
+// MongoDB
 await RBAC.init({
-  db: mongoose.connection,
+  database: {
+    type: 'mongodb',
+    connection: mongoose.connection
+  },
   defaultRole: 'user' // Assign 'user' role to all new signups
+});
+
+// PostgreSQL
+await RBAC.init({
+  database: {
+    type: 'postgresql', 
+    connection: pgPool
+  },
+  defaultRole: 'user' // Works the same way
+});
+
+// Legacy format (still supported for MongoDB)
+await RBAC.init({
+  db: mongoose.connection, // ⚠️ Deprecated but functional
+  defaultRole: 'user'
 });
 ```
 
@@ -324,15 +395,31 @@ Full TypeScript definitions included with IntelliSense support:
 
 ```typescript
 import { RBAC, RBACConfig, PermissionCheckOptions } from '@mamoorali295/rbac';
+import { Pool } from 'pg';
 
-const config: RBACConfig = {
-  db: mongoose.connection,
+// MongoDB configuration
+const mongoConfig: RBACConfig = {
+  database: {
+    type: 'mongodb',
+    connection: mongoose.connection
+  },
   authAdapter: async (req): Promise<{ user_id: string }> => ({
     user_id: req.user.id
   })
 };
 
-await RBAC.init(config);
+// PostgreSQL configuration  
+const pgConfig: RBACConfig = {
+  database: {
+    type: 'postgresql',
+    connection: new Pool({ /* pg config */ })
+  },
+  authAdapter: async (req): Promise<{ user_id: string }> => ({
+    user_id: req.user.id
+  })
+};
+
+await RBAC.init(pgConfig); // or mongoConfig
 ```
 
 ## 🔒 Security Best Practices
@@ -629,17 +716,21 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 🆘 Support
+## 📚 Documentation
 
-- 📖 [Documentation](https://sheikh295.github.io/rbac-system)
+- 📖 [API Documentation](https://sheikh295.github.io/rbac-system)
+- 🔄 [Database Comparison Guide](./docs/DATABASE_COMPARISON.md) - MongoDB vs PostgreSQL 
+- 💻 [PostgreSQL Example](./examples/postgresql-example.js)
 - 🐛 [Issue Tracker](https://github.com/sheikh295/rbac/issues)
 - 💬 [Discussions](https://github.com/sheikh295/rbac/discussions)
 
 ## 🎯 Roadmap
 
-- [ ] **Multi-Framework Support** - NestJS
-- [ ] **Multi-Database Support** - PostgreSQL, MySQL adapters
+- [x] **Multi-Database Support** - ✅ MongoDB & PostgreSQL fully supported
+- [ ] **Multi-Framework Support** - NestJS, Fastify adapters
+- [ ] **Additional Databases** - MySQL, SQLite adapters  
 - [ ] **Audit Logging** - Track all permission changes
+- [ ] **Role Templates** - Predefined role templates for common use cases
 
 ---
 
