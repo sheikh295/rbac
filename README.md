@@ -3,7 +3,6 @@
 A **revolutionary, fully dynamic** Role-Based Access Control (RBAC) package for Node.js applications with intelligent middleware, modern admin dashboard, and zero configuration constraints.
 
 [![npm version](https://badge.fury.io/js/%40sheikh295%2Frbac-system.svg)](https://badge.fury.io/js/%40sheikh295%2Frbac-system)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Ready-blue.svg)](https://www.typescriptlang.org/)
 
 ## 📦 How do I install this?
@@ -630,10 +629,6 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 3. Commit your changes (`git commit -m 'Add some amazing feature'`)
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🆘 Support
 

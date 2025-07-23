@@ -30,7 +30,6 @@
     "authorization"
   ],
   "author": "Muhammad Mamoor Ali",
-  "license": "MIT",
   "type": "commonjs",
   "bugs": {
     "url": "https://github.com/sheikh295/rbac/issues"
