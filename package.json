@@ -1,6 +1,6 @@
 {
   "name": "@mamoorali295/rbac",
-  "version": "1.2",
+  "version": "1.1",
   "description": "Complete RBAC (Role-Based Access Control) system for Node.js with Express middleware, MongoDB & PostgreSQL support, modern admin dashboard, TypeScript support, and dynamic permission management",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
