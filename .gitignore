@@ -167,4 +167,6 @@ temp/
 *.dump
 .env.example
 .env.sample
+
+.claude/
 CLAUDE.md
