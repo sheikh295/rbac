@@ -1,7 +1,9 @@
 import { getBaseLayout } from './layout';
 
 export const getPermissionsListView = (permissions: any[]): string => {
-  const permissionsRows = permissions.map(permission => `
+  const permissionsRows = permissions.map(permission => {
+    const permissionId = permission._id || permission.id; // Handle both MongoDB and PostgreSQL
+    return `
     <tr>
       <td>
         <strong>${permission.name}</strong><br>
@@ -12,11 +14,11 @@ export const getPermissionsListView = (permissions: any[]): string => {
       </td>
       <td>${permission.createdAt ? new Date(permission.createdAt).toLocaleDateString() : 'N/A'}</td>
       <td>
-        <button class="btn" onclick="editPermission('${permission._id}', '${permission.name}', '${permission.description}')">Edit</button>
-        <button class="btn btn-danger" onclick="confirmDeletePermission('${permission._id}', '${permission.name}')">Delete</button>
+        <button class="btn" onclick="editPermission('${permissionId}', '${permission.name}', '${permission.description}')">Edit</button>
+        <button class="btn btn-danger" onclick="confirmDeletePermission('${permissionId}', '${permission.name}')">Delete</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
 
   const content = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
@@ -193,15 +195,23 @@ export const getPermissionsListView = (permissions: any[]): string => {
 };
 
 export const getPermissionDetailsView = (permission: any, relatedRoles: any[]): string => {
-  const rolesUsingPermission = relatedRoles.filter(role => 
-    role.features && role.features.some((f: any) => 
-      f.permissions && f.permissions.some((p: any) => p._id.toString() === permission._id.toString())
-    )
-  );
+  const rolesUsingPermission = relatedRoles.filter(role => {
+    const permissionId = permission._id || permission.id;
+    return role.features && role.features.some((f: any) => 
+      f.permissions && f.permissions.some((p: any) => {
+        const pId = p._id || p.id;
+        return pId.toString() === permissionId.toString();
+      })
+    );
+  });
 
   const rolesHtml = rolesUsingPermission.map(role => {
+    const permissionId = permission._id || permission.id;
     const featuresWithPermission = role.features.filter((f: any) => 
-      f.permissions && f.permissions.some((p: any) => p._id.toString() === permission._id.toString())
+      f.permissions && f.permissions.some((p: any) => {
+        const pId = p._id || p.id;
+        return pId.toString() === permissionId.toString();
+      })
     );
     
     return `
@@ -214,7 +224,7 @@ export const getPermissionDetailsView = (permission: any, relatedRoles: any[]): 
           <strong>Features using this permission:</strong>
           ${featuresWithPermission.map((f: any) => `<span class="badge">${f.feature.name}</span>`).join(' ')}
           <div style="margin-top: 10px;">
-            <a href="/rbac-admin/roles/${role._id}" class="btn">View Role Details</a>
+            <a href="/rbac-admin/roles/${role._id || role.id}" class="btn">View Role Details</a>
           </div>
         </div>
       </div>
@@ -222,8 +232,12 @@ export const getPermissionDetailsView = (permission: any, relatedRoles: any[]): 
   }).join('');
 
   const totalFeatures = rolesUsingPermission.reduce((acc, role) => {
+    const permissionId = permission._id || permission.id;
     const featuresWithPermission = role.features.filter((f: any) => 
-      f.permissions && f.permissions.some((p: any) => p._id.toString() === permission._id.toString())
+      f.permissions && f.permissions.some((p: any) => {
+        const pId = p._id || p.id;
+        return pId.toString() === permissionId.toString();
+      })
     );
     return acc + featuresWithPermission.length;
   }, 0);
@@ -238,7 +252,7 @@ export const getPermissionDetailsView = (permission: any, relatedRoles: any[]): 
         <h2>${permission.name}</h2>
         <p style="color: #666;">${permission.description}</p>
       </div>
-      <button class="btn" onclick="editPermission('${permission._id}', '${permission.name}', '${permission.description}')">Edit Permission</button>
+      <button class="btn" onclick="editPermission('${permission._id || permission.id}', '${permission.name}', '${permission.description}')">Edit Permission</button>
     </div>
     
     <div class="card">

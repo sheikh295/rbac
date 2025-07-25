@@ -1,7 +1,9 @@
 import { getBaseLayout } from './layout';
 
 export const getRolesListView = (roles: any[], features: any[], permissions: any[]): string => {
-  const rolesRows = roles.map(role => `
+  const rolesRows = roles.map(role => {
+    const roleId = role._id || role.id; // Handle both MongoDB and PostgreSQL
+    return `
     <tr>
       <td>
         <strong>${role.name}</strong><br>
@@ -9,32 +11,36 @@ export const getRolesListView = (roles: any[], features: any[], permissions: any
       </td>
       <td>${role.features?.length || 0} features</td>
       <td>
-        <a href="/rbac-admin/roles/${role._id}" class="btn">View Details</a>
-        <button class="btn btn-danger" onclick="confirmDeleteRole('${role._id}', '${role.name}')">Delete</button>
+        <a href="/rbac-admin/roles/${roleId}" class="btn">View Details</a>
+        <button class="btn btn-danger" onclick="confirmDeleteRole('${roleId}', '${role.name}')">Delete</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
 
-  const featureCheckboxes = features.map(feature => `
+  const featureCheckboxes = features.map(feature => {
+    const featureId = feature._id || feature.id; // Handle both MongoDB and PostgreSQL
+    return `
     <div style="margin: 10px 0; padding: 10px; border: 1px solid #ddd; border-radius: 4px;">
       <div>
-        <input type="checkbox" name="features" value="${feature._id}" id="feature-${feature._id}" onchange="togglePermissions('${feature._id}')">
-        <label for="feature-${feature._id}" style="margin-left: 8px; font-weight: bold;">${feature.name}</label>
+        <input type="checkbox" name="features" value="${featureId}" id="feature-${featureId}" onchange="togglePermissions('${featureId}')">
+        <label for="feature-${featureId}" style="margin-left: 8px; font-weight: bold;">${feature.name}</label>
         <p style="margin: 5px 0; color: #666; font-size: 14px;">${feature.description}</p>
       </div>
-      <div id="permissions-${feature._id}" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
+      <div id="permissions-${featureId}" style="display: none; margin-top: 10px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
         <strong>Select Permissions:</strong>
         <div style="margin-top: 8px;">
-          ${permissions.map(permission => `
+          ${permissions.map(permission => {
+            const permissionId = permission._id || permission.id;
+            return `
             <label style="display: inline-block; margin-right: 15px; font-weight: normal;">
-              <input type="checkbox" name="feature-${feature._id}-permissions" value="${permission._id}">
+              <input type="checkbox" name="feature-${featureId}-permissions" value="${permissionId}">
               ${permission.name}
             </label>
-          `).join('')}
+          `}).join('')}
         </div>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 
   const content = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
@@ -187,7 +193,7 @@ export const getRoleDetailsView = (role: any, allFeatures: any[], allPermissions
     <div class="card" style="margin-bottom: 1rem;">
       <div class="card-header" style="display: flex; justify-content: space-between; align-items: center;">
         <h5>${rf.feature.name}</h5>
-        <button class="btn btn-danger" onclick="removeFeatureFromRole('${role._id}', '${rf.feature._id}')">Remove</button>
+        <button class="btn btn-danger" onclick="removeFeatureFromRole('${role._id || role.id}', '${rf.feature._id || rf.feature.id}')">Remove</button>
       </div>
       <div class="card-body">
         <p>${rf.feature.description}</p>
@@ -195,48 +201,56 @@ export const getRoleDetailsView = (role: any, allFeatures: any[], allPermissions
         ${rf.permissions.map((p: any) => `
           <span class="badge" style="margin: 2px;">
             ${p.name}
-            <button onclick="removePermissionFromFeature('${role._id}', '${rf.feature._id}', '${p._id}')" style="background: none; border: none; color: white; margin-left: 5px; cursor: pointer;">&times;</button>
+            <button onclick="removePermissionFromFeature('${role._id || role.id}', '${rf.feature._id || rf.feature.id}', '${p._id || p.id}')" style="background: none; border: none; color: white; margin-left: 5px; cursor: pointer;">&times;</button>
           </span>
         `).join('')}
         
         <div style="margin-top: 10px;">
-          <button class="btn" onclick="openModal('addPermissionModal-${rf.feature._id}')">Add Permissions</button>
+          <button class="btn" onclick="openModal('addPermissionModal-${rf.feature._id || rf.feature.id}')">Add Permissions</button>
         </div>
       </div>
     </div>
   `).join('');
 
-  const unassignedFeatures = allFeatures.filter(f => 
-    !roleFeatures.some((rf: any) => rf.feature._id.toString() === f._id.toString())
-  );
+  const unassignedFeatures = allFeatures.filter(f => {
+    const fId = f._id || f.id;
+    return !roleFeatures.some((rf: any) => {
+      const rfId = rf.feature._id || rf.feature.id;
+      return rfId.toString() === fId.toString();
+    });
+  });
 
   const unassignedFeaturesOptions = unassignedFeatures.map(f => 
-    `<option value="${f._id}">${f.name}</option>`
+    `<option value="${f._id || f.id}">${f.name}</option>`
   ).join('');
 
   const permissionModals = roleFeatures.map((rf: any) => {
-    const availablePermissions = allPermissions.filter(p => 
-      !rf.permissions.some((rp: any) => rp._id.toString() === p._id.toString())
-    );
+    const availablePermissions = allPermissions.filter(p => {
+      const pId = p._id || p.id;
+      return !rf.permissions.some((rp: any) => {
+        const rpId = rp._id || rp.id;
+        return rpId.toString() === pId.toString();
+      });
+    });
 
     return `
-      <div id="addPermissionModal-${rf.feature._id}" class="modal">
+      <div id="addPermissionModal-${rf.feature._id || rf.feature.id}" class="modal">
         <div class="modal-content">
-          <span class="close" onclick="closeModal('addPermissionModal-${rf.feature._id}')">&times;</span>
+          <span class="close" onclick="closeModal('addPermissionModal-${rf.feature._id || rf.feature.id}')">&times;</span>
           <h3>Add Permissions to ${rf.feature.name}</h3>
-          <form method="POST" action="/rbac-admin/roles/${role._id}/add-permissions">
-            <input type="hidden" name="featureIds" value="${rf.feature._id}">
+          <form method="POST" action="/rbac-admin/roles/${role._id || role.id}/add-permissions">
+            <input type="hidden" name="featureIds" value="${rf.feature._id || rf.feature.id}">
             <div class="form-group">
               <label>Select Permissions to Add:</label>
               ${availablePermissions.map(p => `
                 <label style="display: block; margin: 5px 0;">
-                  <input type="checkbox" name="permissionIds" value="${p._id}">
+                  <input type="checkbox" name="permissionIds" value="${p._id || p.id}">
                   ${p.name} - ${p.description}
                 </label>
               `).join('')}
             </div>
             <button type="submit" class="btn btn-success">Add Selected Permissions</button>
-            <button type="button" class="btn" onclick="closeModal('addPermissionModal-${rf.feature._id}')">Cancel</button>
+            <button type="button" class="btn" onclick="closeModal('addPermissionModal-${rf.feature._id || rf.feature.id}')">Cancel</button>
           </form>
         </div>
       </div>
@@ -270,13 +284,13 @@ export const getRoleDetailsView = (role: any, allFeatures: any[], allPermissions
       <div class="modal-content">
         <span class="close" onclick="closeModal('addFeatureModal')">&times;</span>
         <h3>Add Features to Role</h3>
-        <form method="POST" action="/rbac-admin/roles/${role._id}/assign-features">
+        <form method="POST" action="/rbac-admin/roles/${role._id || role.id}/assign-features">
           <div class="form-group">
             <label>Select Features:</label>
             ${unassignedFeatures.length > 0 ? 
               unassignedFeatures.map(f => `
                 <label style="display: block; margin: 5px 0;">
-                  <input type="checkbox" name="featureIds" value="${f._id}">
+                  <input type="checkbox" name="featureIds" value="${f._id || f.id}">
                   ${f.name} - ${f.description}
                 </label>
               `).join('') : 

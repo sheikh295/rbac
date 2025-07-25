@@ -1,7 +1,9 @@
 import { getBaseLayout } from './layout';
 
 export const getFeaturesListView = (features: any[]): string => {
-  const featuresRows = features.map(feature => `
+  const featuresRows = features.map(feature => {
+    const featureId = feature._id || feature.id; // Handle both MongoDB and PostgreSQL
+    return `
     <tr>
       <td>
         <strong>${feature.name}</strong><br>
@@ -9,11 +11,11 @@ export const getFeaturesListView = (features: any[]): string => {
       </td>
       <td>${feature.createdAt ? new Date(feature.createdAt).toLocaleDateString() : 'N/A'}</td>
       <td>
-        <button class="btn" onclick="editFeature('${feature._id}', '${feature.name}', '${feature.description}')">Edit</button>
-        <button class="btn btn-danger" onclick="confirmDeleteFeature('${feature._id}', '${feature.name}')">Delete</button>
+        <button class="btn" onclick="editFeature('${featureId}', '${feature.name}', '${feature.description}')">Edit</button>
+        <button class="btn btn-danger" onclick="confirmDeleteFeature('${featureId}', '${feature.name}')">Delete</button>
       </td>
     </tr>
-  `).join('');
+  `}).join('');
 
   const content = `
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
@@ -120,12 +122,20 @@ export const getFeaturesListView = (features: any[]): string => {
 };
 
 export const getFeatureDetailsView = (feature: any, relatedRoles: any[]): string => {
-  const rolesUsingFeature = relatedRoles.filter(role => 
-    role.features && role.features.some((f: any) => f.feature._id.toString() === feature._id.toString())
-  );
+  const rolesUsingFeature = relatedRoles.filter(role => {
+    const featureId = feature._id || feature.id;
+    return role.features && role.features.some((f: any) => {
+      const fId = f.feature._id || f.feature.id;
+      return fId.toString() === featureId.toString();
+    });
+  });
 
   const rolesHtml = rolesUsingFeature.map(role => {
-    const roleFeature = role.features.find((f: any) => f.feature._id.toString() === feature._id.toString());
+    const featureId = feature._id || feature.id;
+    const roleFeature = role.features.find((f: any) => {
+      const fId = f.feature._id || f.feature.id;
+      return fId.toString() === featureId.toString();
+    });
     return `
       <div class="card" style="margin-bottom: 1rem;">
         <div class="card-header">
@@ -136,7 +146,7 @@ export const getFeatureDetailsView = (feature: any, relatedRoles: any[]): string
           <strong>Permissions for this feature:</strong>
           ${roleFeature.permissions.map((p: any) => `<span class="badge">${p.name}</span>`).join(' ')}
           <div style="margin-top: 10px;">
-            <a href="/rbac-admin/roles/${role._id}" class="btn">View Role Details</a>
+            <a href="/rbac-admin/roles/${role._id || role.id}" class="btn">View Role Details</a>
           </div>
         </div>
       </div>
