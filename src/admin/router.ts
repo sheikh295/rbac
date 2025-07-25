@@ -117,7 +117,9 @@ export const createAdminRouter = (dbAdapter: DatabaseAdapter): Router => {
         if (!role) {
           return res.status(404).json({ error: 'Role not found' });
         }
-        await dbAdapter.updateUser(req.params.userId, { role_id: role.id });
+        // Handle both MongoDB (_id) and PostgreSQL (id)
+        const roleId = (role as any)._id || role.id;
+        await dbAdapter.updateUser(req.params.userId, { role_id: roleId });
       } else {
         return res.status(404).json({ error: 'Role not found' });
       }
@@ -165,15 +167,27 @@ export const createAdminRouter = (dbAdapter: DatabaseAdapter): Router => {
 
   router.post('/roles/create', async (req: Request, res: Response) => {
     try {
-      const { name, description } = req.body;
+      const { name, description, features } = req.body;
       
       const existingRole = await dbAdapter.findRoleByName(name);
       if (existingRole) {
         return res.status(400).json({ error: 'Role already exists' });
       }
       
-      await dbAdapter.createRole({ name, description });
-      res.redirect('/rbac-admin/roles');
+      const newRole = await dbAdapter.createRole({ name, description });
+      
+      // If features are provided, assign them to the role
+      if (features && features.length > 0) {
+        const roleId = (newRole as any)._id || newRole.id;
+        const featurePermissions = features.map((f: any) => ({
+          feature_id: f.feature,
+          permission_ids: f.permissions
+        }));
+        
+        await dbAdapter.assignRoleFeaturePermissions(roleId, featurePermissions);
+      }
+      
+      res.json({ success: true, message: 'Role created successfully' });
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }
@@ -193,9 +207,109 @@ export const createAdminRouter = (dbAdapter: DatabaseAdapter): Router => {
   
   router.post('/roles/:roleId/assign-features', async (req: Request, res: Response) => {
     try {
-      const { featurePermissions } = req.body; // Format: [{ feature_id, permission_ids }]
+      let { featurePermissions, featureIds } = req.body;
+      
+      // Handle form data: convert featureIds to featurePermissions with all permissions
+      if (!featurePermissions && featureIds) {
+        const featureIdArray = Array.isArray(featureIds) ? featureIds : [featureIds];
+        const allPermissions = await dbAdapter.getAllPermissions();
+        
+        featurePermissions = featureIdArray.map(featureId => ({
+          feature_id: featureId,
+          permission_ids: allPermissions.items.map(p => (p as any)._id || p.id)
+        }));
+      }
+      
+      if (!featurePermissions || featurePermissions.length === 0) {
+        return res.status(400).json({ error: 'No features or permissions provided' });
+      }
+      
       await dbAdapter.assignRoleFeaturePermissions(req.params.roleId, featurePermissions);
-      res.json({ success: true, message: 'Role features updated successfully' });
+      res.redirect(`/rbac-admin/roles/${req.params.roleId}`);
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Remove permissions from a specific feature within a role
+  router.post('/roles/:roleId/remove-permissions', async (req: Request, res: Response) => {
+    try {
+      const { featureIds, permissionIds } = req.body;
+      const featureId = Array.isArray(featureIds) ? featureIds[0] : featureIds;
+      const permissionsToRemove = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
+      
+      // Get current role features
+      const role = await dbAdapter.findRoleByIdWithFeatures(req.params.roleId);
+      if (!role) {
+        return res.status(404).json({ error: 'Role not found' });
+      }
+
+      // Find the existing feature assignment
+      const existingFeature = role.features?.find((f: any) => {
+        const fId = f.feature_id?.toString() || f.feature?._id?.toString() || f._id?.toString();
+        return fId === featureId;
+      });
+      
+      if (!existingFeature || !existingFeature.permissions) {
+        return res.status(404).json({ error: 'Feature or permissions not found' });
+      }
+
+      // Remove specified permissions
+      const existingPermissionIds = Array.isArray(existingFeature.permissions) 
+        ? existingFeature.permissions.map((p: any) => (p._id || p.id || p).toString()) 
+        : [];
+      
+      const updatedPermissions = existingPermissionIds.filter((pId: string) => 
+        !permissionsToRemove.includes(pId)
+      );
+
+      const featurePermissions = [{
+        feature_id: featureId,
+        permission_ids: updatedPermissions
+      }];
+
+      await dbAdapter.assignRoleFeaturePermissions(req.params.roleId, featurePermissions);
+      res.json({ success: true, message: 'Permission removed successfully' });
+    } catch (error) {
+      res.status(500).json({ error: (error as Error).message });
+    }
+  });
+
+  // Add permissions to a specific feature within a role
+  router.post('/roles/:roleId/add-permissions', async (req: Request, res: Response) => {
+    try {
+      const { featureIds, permissionIds } = req.body;
+      const featureId = Array.isArray(featureIds) ? featureIds[0] : featureIds;
+      const permissions = Array.isArray(permissionIds) ? permissionIds : [permissionIds];
+      
+      // Get current role features to merge with new permissions
+      const role = await dbAdapter.findRoleByIdWithFeatures(req.params.roleId);
+      if (!role) {
+        return res.status(404).json({ error: 'Role not found' });
+      }
+
+      // Find the existing feature assignment (handle undefined features array)
+      const existingFeature = role.features?.find((f: any) => {
+        const fId = f.feature_id?.toString() || f.feature?._id?.toString() || f._id?.toString();
+        return fId === featureId;
+      });
+      
+      let updatedPermissions = permissions;
+      if (existingFeature && existingFeature.permissions) {
+        // Merge existing permissions with new ones (handle undefined permissions array)
+        const existingPermissionIds = Array.isArray(existingFeature.permissions) 
+          ? existingFeature.permissions.map((p: any) => (p._id || p.id || p).toString()) 
+          : [];
+        updatedPermissions = [...new Set([...existingPermissionIds, ...permissions])];
+      }
+
+      const featurePermissions = [{
+        feature_id: featureId,
+        permission_ids: updatedPermissions
+      }];
+
+      await dbAdapter.assignRoleFeaturePermissions(req.params.roleId, featurePermissions);
+      res.redirect(`/rbac-admin/roles/${req.params.roleId}`);
     } catch (error) {
       res.status(500).json({ error: (error as Error).message });
     }

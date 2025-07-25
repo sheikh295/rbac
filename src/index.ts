@@ -3,36 +3,54 @@
  * 
  * This package provides a complete RBAC solution with:
  * - Express middleware for authentication and authorization
+ * - NestJS decorators, guards, and modules for framework integration
+ * - GraphQL directives and resolvers for GraphQL APIs
  * - Automatic permission inference from routes
  * - Admin dashboard for user and role management
- * - MongoDB integration with conflict-free collections
+ * - Multi-database support (MongoDB & PostgreSQL)
  * - TypeScript support with full type definitions
  * 
  * @author Muhammad Mamoor Ali - sheikh295
- * @version 1.0.0
+ * @version 2.0.0
  * @license MIT
  * 
  * @example
  * ```typescript
- * import { RBAC } from '@sheikh295/rbac';
+ * // Express usage
+ * import { RBAC } from '@mamoorali295/rbac';
  * 
- * // Initialize the system
  * RBAC.init({
- *   db: mongoose.connection,
+ *   database: { type: 'mongodb', connection: mongoose.connection },
  *   authAdapter: async (req) => ({ user_id: req.user.id }),
  *   defaultRole: 'user'
- * }).then((val) => {
- *  app.listen(3000, '0.0.0.0')
  * });
  * 
- * // Use middleware for route protection
  * app.get('/api/billing', RBAC.checkPermissions(), handler);
  * 
- * // Mount admin dashboard
- * app.use('/rbac-admin', RBAC.adminDashboard({
- *   user: 'admin',
- *   pass: 'secret'
- * }));
+ * // NestJS usage
+ * import { RbacModule, CheckPermissions, PermissionsGuard } from '@mamoorali295/rbac/nestjs';
+ * 
+ * @Module({
+ *   imports: [RbacModule.forRoot({ database: { type: 'mongodb', connection: mongooseConnection } })]
+ * })
+ * export class AppModule {}
+ * 
+ * @Controller('billing')
+ * @UseGuards(PermissionsGuard)
+ * export class BillingController {
+ *   @Get('invoices')
+ *   @CheckPermissions()
+ *   getInvoices() { ... }
+ * }
+ * 
+ * // GraphQL usage
+ * import { AuthDirective, rbacResolvers } from '@mamoorali295/rbac/graphql';
+ * 
+ * const server = new ApolloServer({
+ *   typeDefs,
+ *   resolvers: rbacResolvers,
+ *   schemaDirectives: { auth: AuthDirective }
+ * });
  * ```
  */
 
@@ -45,6 +63,12 @@ export * from './types';
 /** Database controllers for safe advanced operations */
 export { userRoleController } from './mongo/controllers/userrole.controller';
 export { featureController } from './mongo/controllers/feature.controller';
+
+/** NestJS integration - Import from '@mamoorali295/rbac/nestjs' */
+// Note: NestJS integration is available via separate import: require('@mamoorali295/rbac/nestjs')
+
+/** GraphQL integration - Import from '@mamoorali295/rbac/graphql' */  
+// Note: GraphQL integration is available via separate import: require('@mamoorali295/rbac/graphql')
 
 /** Default export - RBAC system instance */
 import { RBAC } from './RBAC';

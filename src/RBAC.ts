@@ -1,4 +1,7 @@
-import { Request, Response, NextFunction } from "express";
+// Express types - only imported if Express is available
+type ExpressRequest = any;
+type ExpressResponse = any;  
+type ExpressNextFunction = any;
 import { Connection } from "mongoose";
 import { RBACConfig, PermissionCheckOptions, RegisterUserOptions, AdminDashboardOptions, UserReference } from "./types";
 import { DatabaseAdapter } from "./adapters/DatabaseAdapter";
@@ -105,7 +108,7 @@ class RBACSystem {
    * Uses the first path segment as the feature and HTTP method/path patterns for permission.
    * 
    * @private
-   * @param {Request} req - Express request object
+   * @param {ExpressRequest} req - Express request object
    * @returns {{feature: string, permission: string}} Inferred feature and permission
    * 
    * @example
@@ -113,7 +116,7 @@ class RBACSystem {
    * POST /billing/create -> { feature: 'billing', permission: 'create' }
    * DELETE /billing/remove -> { feature: 'billing', permission: 'delete' }
    */
-  private inferFeatureAndPermission(req: Request): { feature: string; permission: string } {
+  private inferFeatureAndPermission(req: ExpressRequest): { feature: string; permission: string } {
     const pathSegments = req.path.split("/").filter(Boolean);
     const method = req.method.toLowerCase();
 
@@ -158,11 +161,11 @@ class RBACSystem {
    * Extracts user identity from the request using authAdapter or fallback properties.
    * 
    * @private
-   * @param {Request} req - Express request object
+   * @param {ExpressRequest} req - Express request object
    * @returns {Promise<{user_id: string, email?: string}>} User identity object
    * @throws {Error} If user identity cannot be determined
    */
-  private async getUserIdentity(req: Request): Promise<{ user_id: string; email?: string }> {
+  private async getUserIdentity(req: ExpressRequest): Promise<{ user_id: string; email?: string }> {
     this.ensureInitialized();
 
     if (this.config!.authAdapter) {
@@ -197,7 +200,7 @@ class RBACSystem {
    * }), handler);
    */
   checkPermissions(options: PermissionCheckOptions = {}) {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
       try {
         this.ensureInitialized();
 
@@ -254,7 +257,7 @@ class RBACSystem {
    * }), handler);
    */
   registerUser(options: RegisterUserOptions = {}) {
-    return async (req: Request, res: Response, next: NextFunction) => {
+    return async (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
       try {
         this.ensureInitialized();
 
@@ -478,6 +481,19 @@ class RBACSystem {
    * ```
    */
   adminDashboard(options: AdminDashboardOptions) {
+    // Check if Express is available
+    try {
+      require.resolve('express');
+      require.resolve('express-session');
+    } catch (error) {
+      throw new Error(
+        'Express dependencies not found. Please install express and express-session to use the admin dashboard:\n\n' +
+        'npm install express express-session\n\n' +
+        'Or if using yarn:\n' +
+        'yarn add express express-session'
+      );
+    }
+
     const express = require('express');
     const session = require('express-session');
     const { createAdminRouter } = require('./admin/router');
@@ -500,14 +516,14 @@ class RBACSystem {
     dashboardRouter.use(express.json());
     dashboardRouter.use(express.urlencoded({ extended: true }));
     
-    dashboardRouter.get('/login', (req: Request, res: Response) => {
+    dashboardRouter.get('/login', (req: ExpressRequest, res: ExpressResponse) => {
       if ((req.session as any)?.authenticated) {
         return res.redirect(req.baseUrl + '/');
       }
       res.send(getLoginView(req.baseUrl));
     });
     
-    dashboardRouter.post('/login', (req: Request, res: Response) => {
+    dashboardRouter.post('/login', (req: ExpressRequest, res: ExpressResponse) => {
       const { username, password } = req.body;
       
       if (username === options.user && password === options.pass) {
@@ -521,13 +537,13 @@ class RBACSystem {
       }
     });
     
-    dashboardRouter.post('/logout', (req: Request, res: Response) => {
-      req.session.destroy((err) => {
+    dashboardRouter.post('/logout', (req: ExpressRequest, res: ExpressResponse) => {
+      req.session.destroy((err: any) => {
         res.redirect(req.baseUrl + '/login');
       });
     });
     
-    dashboardRouter.use((req: Request, res: Response, next: NextFunction) => {
+    dashboardRouter.use((req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
       if (req.path === '/login' || req.path.startsWith('/login')) {
         return next();
       }
@@ -553,7 +569,7 @@ class RBACSystem {
     });
     
     // Create a lazy-loaded admin router that gets the dbAdapter when needed
-    dashboardRouter.use('/', (req: Request, res: Response, next: NextFunction) => {
+    dashboardRouter.use('/', (req: ExpressRequest, res: ExpressResponse, next: ExpressNextFunction) => {
       if (!this.dbAdapter) {
         return res.status(500).send('RBAC system not initialized');
       }

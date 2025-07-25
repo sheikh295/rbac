@@ -1,6 +1,6 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { RBAC } = require('@sheikh295/rbac');
+const { RBAC } = require('@mamoorali295/rbac');
 
 const app = express();
 app.use(express.json());
@@ -10,7 +10,10 @@ mongoose
   .connect('mongodb://localhost:27017/rbac-demo')
   .then((result) => {
     RBAC.init({
-      db: result.connection, // or real MongoDB
+      database: {
+        type: 'mongodb',
+        connection: result.connection
+      },
       authAdapter: async (req) => {
         // Extract user identity from JWT or session
         // This would typically decode a JWT token
@@ -24,10 +27,12 @@ mongoose
       },
       onRoleUpdate: (payload) => {
         console.log('Role updated:', payload);
-      }
+      },
+      defaultRole: 'user' // Auto-assign 'user' role to new users
     }).then(() => {
       app.listen(3000, '0.0.0.0', () => {
-        console.info(`connected to db and app listening on port ${3000}`);
+        console.info(`🚀 Server running on http://localhost:3000`);
+        console.info(`📊 Admin dashboard: http://localhost:3000/rbac-admin`);
       });
     });
   })
@@ -37,9 +42,20 @@ mongoose
 
 // Register new users (captures them in RBAC system)
 app.post('/signup', RBAC.registerUser(), (req, res) => {
-  // OR
-  RBAC.registerUserManual('test-user', { name: 'Test user', email: 'testing@email.com' })
   res.json({ message: 'User registered successfully' });
+});
+
+// Manual user registration example
+app.post('/admin/register-user', async (req, res) => {
+  try {
+    await RBAC.registerUserManual('test-user', { 
+      name: 'Test user', 
+      email: 'testing@email.com' 
+    });
+    res.json({ message: 'User registered manually' });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
 });
 
 // Protected routes with automatic permission inference
@@ -61,10 +77,12 @@ app.post('/users/delete', RBAC.checkPermissions({
   res.json({ message: 'User deleted' });
 });
 
-// Admin dashboard (optional)
+// Admin dashboard (session-based authentication)
 app.use('/rbac-admin', RBAC.adminDashboard({
   user: 'admin',
-  pass: 'secure-password'
+  pass: 'secure-password',
+  sessionSecret: 'your-secret-session-key',
+  sessionName: 'rbac.admin.sid'
 }));
 
 // Manual RBAC operations
@@ -89,7 +107,4 @@ app.get('/user/permissions/:feature', async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log('Server running on port 3000');
-  console.log('Admin dashboard: http://localhost:3000/rbac-admin');
-});
+// The server is already started above after RBAC initialization

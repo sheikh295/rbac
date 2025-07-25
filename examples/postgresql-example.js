@@ -1,6 +1,6 @@
 const express = require('express');
 const { Pool } = require('pg');
-const { RBAC } = require('../dist/index');
+const { RBAC } = require('@mamoorali295/rbac');
 
 const app = express();
 app.use(express.json());
@@ -67,7 +67,7 @@ app.use('/rbac-admin', RBAC.adminDashboard({
 // Manual user management examples
 app.post('/api/setup', async (req, res) => {
   try {
-    // Register users manually
+    // Register sample users manually
     await RBAC.registerUserManual('john123', {
       name: 'John Doe',
       email: 'john@example.com'
@@ -78,13 +78,18 @@ app.post('/api/setup', async (req, res) => {
       email: 'admin@example.com'
     });
 
-    // Create roles and features using the adapter
-    const { feature, userRole } = RBAC.controllers;
+    // PostgreSQL setup complete
+    // Use the admin dashboard at /rbac-admin to:
+    // 1. Create roles (manager, admin, etc.)
+    // 2. Create features (billing, users, reports)
+    // 3. Assign permissions to roles
+    // 4. Assign roles to users
     
-    // Note: Controllers are MongoDB-specific. For PostgreSQL, use direct adapter methods
-    // This is just an example - you would implement this through the admin dashboard
-    
-    res.json({ message: 'Setup completed successfully' });
+    res.json({ 
+      message: 'PostgreSQL setup completed successfully',
+      users_created: ['john123', 'admin123'],
+      next_steps: 'Visit /rbac-admin to configure roles and permissions'
+    });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }

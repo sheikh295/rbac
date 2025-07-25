@@ -1,4 +1,6 @@
-import { Request } from "express";
+// Optional Express types - only available if Express is installed
+type ExpressRequest = any;
+
 import { Connection } from "mongoose";
 import { Pool } from "pg";
 
@@ -38,8 +40,8 @@ export type DatabaseConfig = MongoDBConfig | PostgreSQLConfig;
 export interface RBACConfig {
   /** Database configuration object */
   database: DatabaseConfig;
-  /** Function to extract user identity from Express request */
-  authAdapter?: (req: Request) => Promise<{ user_id: string; email?: string }> | { user_id: string; email?: string };
+  /** Function to extract user identity from Express request or NestJS ExecutionContext */
+  authAdapter?: (req: ExpressRequest | any) => Promise<{ user_id: string; email?: string }> | { user_id: string; email?: string };
   /** Hook called when a new user is registered */
   onUserRegister?: (user: { user_id: string; name?: string; email?: string }) => void | Promise<void>;
   /** Hook called when a user's role is updated */
@@ -67,7 +69,7 @@ export interface PermissionCheckOptions {
  */
 export interface UserExtractor {
   /** Extract user data from request object */
-  (req: Request): { user_id: string; name?: string; email?: string };
+  (req: ExpressRequest): { user_id: string; name?: string; email?: string };
 }
 
 /**
@@ -107,4 +109,81 @@ export interface UserReference {
   email?: string;
   /** Currently assigned role name */
   role?: string;
+}
+
+// NestJS-specific types
+
+/**
+ * Configuration options for NestJS RBAC decorators.
+ */
+export interface NestJSPermissionOptions {
+  /** Name of the feature/module to check access for */
+  feature?: string;
+  /** Type of permission required (read, create, update, delete, sudo) */
+  permission?: string;
+}
+
+/**
+ * Configuration options for NestJS user registration decorator.
+ */
+export interface NestJSRegisterUserOptions {
+  /** Custom function to extract user data from request body and user context */
+  userExtractor?: (body: any, user?: any) => {
+    user_id: string;
+    name?: string;
+    email?: string;
+  };
+}
+
+// GraphQL-specific types
+
+/**
+ * Configuration options for GraphQL auth directive.
+ */
+export interface GraphQLAuthDirectiveArgs {
+  /** Name of the feature/module to check access for */
+  feature?: string;
+  /** Type of permission required (read, create, update, delete, sudo) */
+  permission?: string;
+}
+
+/**
+ * Configuration options for GraphQL register user directive.
+ */
+export interface GraphQLRegisterUserDirectiveArgs {
+  /** Field name containing user ID (default: 'id') */
+  userIdField?: string;
+  /** Field name containing user name (default: 'name') */
+  nameField?: string;
+  /** Field name containing user email (default: 'email') */
+  emailField?: string;
+}
+
+/**
+ * GraphQL context type for user identity extraction.
+ */
+export interface GraphQLUserContext {
+  /** User information attached to GraphQL context */
+  user?: {
+    id?: string;
+    user_id?: string;
+    email?: string;
+    [key: string]: any;
+  };
+  /** Express request object (if available) */
+  req?: ExpressRequest;
+  /** Alternative request object name */
+  request?: ExpressRequest;
+  /** Direct user ID attachment */
+  user_id?: string;
+  /** Direct user ID attachment (alternative) */
+  userId?: string;
+  /** Direct email attachment */
+  email?: string;
+  /** RBAC user info (attached by register directive) */
+  rbacUser?: {
+    user_id: string;
+    name?: string;
+    email?: string;
+  };
 }

@@ -2,22 +2,47 @@
 
 const express = require('express');
 const mongoose = require('mongoose');
-const { RBAC } = require('../dist/index');  // After building with npm run build
+const { RBAC } = require('@mamoorali295/rbac');
 
 const app = express();
 
 // Your app routes (no conflicts)
 app.get('/', (req, res) => {
-  res.json({ message: 'Your main app' });
+  res.json({ 
+    message: 'RBAC Demo Application',
+    endpoints: {
+      admin: '/rbac-admin',
+      signup: '/api/signup',
+      billing: '/api/billing',
+      admin_ops: '/api/admin'
+    }
+  });
 });
 
-app.get('/api/users', (req, res) => {
-  res.json({ message: 'Your API routes' });
+// Example protected API endpoint
+app.get('/api/billing', RBAC.checkPermissions(), (req, res) => {
+  res.json({ 
+    billing_data: 'Your billing information',
+    message: 'Access granted to billing feature' 
+  });
+});
+
+// Example user registration
+app.post('/api/signup', RBAC.registerUser(), (req, res) => {
+  res.json({ message: 'User registered successfully in RBAC system' });
+});
+
+// Example admin-only endpoint
+app.post('/api/admin', RBAC.checkPermissions({
+  feature: 'admin',
+  permission: 'sudo'
+}), (req, res) => {
+  res.json({ message: 'Admin operation completed' });
 });
 
 // Your app might have its own login at /login
 app.get('/login', (req, res) => {
-  res.json({ message: 'Your app login page' });
+  res.json({ message: 'Your app login page (separate from RBAC admin)' });
 });
 
 async function startApp() {
@@ -26,7 +51,10 @@ async function startApp() {
   
   // Initialize RBAC
   await RBAC.init({
-    db: mongoose.connection,
+    database: {
+      type: 'mongodb',
+      connection: mongoose.connection
+    },
     authAdapter: async (req) => ({ 
       user_id: req.user?.id || 'anonymous' 
     }),
@@ -58,6 +86,11 @@ async function startApp() {
     console.log('Admin Credentials:');
     console.log('Username: admin');
     console.log('Password: secure-password-123');
+    console.log('');
+    console.log('✨ Example API endpoints:');
+    console.log('POST /api/signup - Register new user');
+    console.log('GET  /api/billing - Protected billing data');
+    console.log('POST /api/admin - Admin operations');
   });
 }
 

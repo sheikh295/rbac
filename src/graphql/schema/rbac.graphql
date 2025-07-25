@@ -1,0 +1,126 @@
+directive @auth(feature: String, permission: String) on FIELD_DEFINITION
+directive @registerUser(userIdField: String, nameField: String, emailField: String) on FIELD_DEFINITION
+
+type User {
+  id: ID!
+  user_id: String!
+  name: String!
+  email: String!
+  role: Role
+}
+
+type Role {
+  id: ID!
+  name: String!
+  features: [FeaturePermission!]
+}
+
+type Feature {
+  id: ID!
+  name: String!
+  permissions: [Permission!]
+}
+
+type Permission {
+  id: ID!
+  name: String!
+}
+
+type FeaturePermission {
+  feature: Feature!
+  permissions: [Permission!]!
+}
+
+type PaginatedUsers {
+  data: [User!]!
+  pagination: Pagination!
+}
+
+type Pagination {
+  page: Int!
+  limit: Int!
+  total: Int!
+  pages: Int!
+}
+
+type RbacStats {
+  users: Int!
+  roles: Int!
+  features: Int!
+  permissions: Int!
+}
+
+input CreateUserInput {
+  user_id: String!
+  name: String
+  email: String
+  role_id: String
+}
+
+input UpdateUserInput {
+  name: String
+  email: String
+}
+
+input CreateRoleInput {
+  name: String!
+  features: [FeaturePermissionInput!]
+}
+
+input FeaturePermissionInput {
+  feature_id: String!
+  permission_ids: [String!]!
+}
+
+input CreateFeatureInput {
+  name: String!
+}
+
+input CreatePermissionInput {
+  name: String!
+}
+
+type Query {
+  # User queries - require admin permissions
+  users(page: Int, limit: Int, search: String): PaginatedUsers! @auth(feature: "admin", permission: "read")
+  user(user_id: String!): User @auth(feature: "admin", permission: "read")
+  
+  # Role queries - require admin permissions
+  roles: [Role!]! @auth(feature: "admin", permission: "read")
+  role(id: ID!): Role @auth(feature: "admin", permission: "read")
+  
+  # Feature queries - require admin permissions
+  features: [Feature!]! @auth(feature: "admin", permission: "read")
+  
+  # Permission queries - require admin permissions
+  permissions: [Permission!]! @auth(feature: "admin", permission: "read")
+  
+  # User-specific queries - users can check their own permissions
+  userFeaturePermissions(user_id: String!, feature: String!): [String!]!
+  
+  # Dashboard stats - require admin permissions
+  rbacStats: RbacStats! @auth(feature: "admin", permission: "read")
+}
+
+type Mutation {
+  # User mutations - require admin permissions
+  createUser(input: CreateUserInput!): User! @auth(feature: "admin", permission: "create") @registerUser
+  updateUser(user_id: String!, input: UpdateUserInput!): User! @auth(feature: "admin", permission: "update")
+  deleteUser(user_id: String!): Boolean! @auth(feature: "admin", permission: "delete")
+  assignRole(user_id: String!, role_name: String!): User! @auth(feature: "admin", permission: "update")
+  
+  # Role mutations - require admin permissions
+  createRole(input: CreateRoleInput!): Role! @auth(feature: "admin", permission: "create")
+  updateRole(id: ID!, input: CreateRoleInput!): Role! @auth(feature: "admin", permission: "update")
+  deleteRole(id: ID!): Boolean! @auth(feature: "admin", permission: "delete")
+  
+  # Feature mutations - require admin permissions
+  createFeature(input: CreateFeatureInput!): Feature! @auth(feature: "admin", permission: "create")
+  updateFeature(id: ID!, input: CreateFeatureInput!): Feature! @auth(feature: "admin", permission: "update")
+  deleteFeature(id: ID!): Boolean! @auth(feature: "admin", permission: "delete")
+  
+  # Permission mutations - require admin permissions
+  createPermission(input: CreatePermissionInput!): Permission! @auth(feature: "admin", permission: "create")
+  updatePermission(id: ID!, input: CreatePermissionInput!): Permission! @auth(feature: "admin", permission: "update")
+  deletePermission(id: ID!): Boolean! @auth(feature: "admin", permission: "delete")
+}

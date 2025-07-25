@@ -270,7 +270,7 @@ export const getRoleDetailsView = (role: any, allFeatures: any[], allPermissions
       <div class="modal-content">
         <span class="close" onclick="closeModal('addFeatureModal')">&times;</span>
         <h3>Add Features to Role</h3>
-        <form method="POST" action="/rbac-admin/roles/${role._id}/add-features">
+        <form method="POST" action="/rbac-admin/roles/${role._id}/assign-features">
           <div class="form-group">
             <label>Select Features:</label>
             ${unassignedFeatures.length > 0 ? 

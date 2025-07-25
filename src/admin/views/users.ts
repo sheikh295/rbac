@@ -16,7 +16,7 @@ export const getUsersListView = (users: any[], roles: any[], pagination?: any): 
           <button class="btn btn-sm" onclick="openModal('assignRoleModal-${user.user_id}')" title="Assign Role">
             👤 Assign
           </button>
-          <button class="btn btn-sm btn-danger" onclick="confirmDelete('${user._id}', '${user.user_id}')" title="Delete User">
+          <button class="btn btn-sm btn-danger" onclick="confirmDelete('${user.user_id}', '${user.user_id}')" title="Delete User">
             🗑️ Delete
           </button>
         </div>

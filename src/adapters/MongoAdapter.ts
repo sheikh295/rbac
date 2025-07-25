@@ -57,7 +57,13 @@ export class MongoAdapter extends DatabaseAdapter {
   }
 
   async updateUser(user_id: string, updates: Partial<DatabaseUser>): Promise<void> {
-    await User.updateOne({ user_id }, updates);
+    // Handle role_id to role field mapping for MongoDB
+    const mongoUpdates: any = { ...updates };
+    if (updates.role_id !== undefined) {
+      mongoUpdates.role = updates.role_id;
+      delete mongoUpdates.role_id;
+    }
+    await User.updateOne({ user_id }, mongoUpdates);
   }
 
   async deleteUser(user_id: string): Promise<void> {

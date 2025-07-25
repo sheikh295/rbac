@@ -23,7 +23,7 @@ GET  /rbac-admin/permissions    <- Permission management
 
 ```javascript
 const express = require('express');
-const { RBAC } = require('@sheikh295/rbac');
+const { RBAC } = require('@mamoorali295/rbac');
 
 const app = express();
 

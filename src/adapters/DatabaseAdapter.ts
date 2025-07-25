@@ -1,4 +1,4 @@
-import { Request } from 'express';
+// Express types removed - DatabaseAdapter should be framework-agnostic
 
 export interface DatabaseUser {
   id?: string;

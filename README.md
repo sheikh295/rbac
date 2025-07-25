@@ -12,6 +12,12 @@ A **revolutionary, fully dynamic** Role-Based Access Control (RBAC) package for 
 npm install @mamoorali295/rbac
 ```
 
+**Framework Support:**
+- ✅ **Express** - Built-in middleware and admin dashboard
+- ✅ **NestJS** - Decorators, guards, modules, and services  
+- ✅ **GraphQL** - Directives, resolvers, and schema transformers
+- ✅ **Framework-agnostic** - Use with any Node.js framework
+
 ## 🤔 Why should I choose this?
 
 ### **🎯 Truly Dynamic & Flexible**
@@ -51,6 +57,14 @@ While other libraries make you build your own admin interface, we provide a **pr
 - ⚙️ **Feature management** - Define your app's features (billing, reports, settings, etc.)
 - 🔐 **Permission assignment** - Granular control over what each role can do
 - 📊 **Live statistics** - Real-time dashboard with database counts
+
+### **🌐 Multi-Framework Support**
+First RBAC library with native support for multiple Node.js frameworks:
+
+- 🚀 **Express** - Traditional middleware with auto-inference and admin dashboard
+- 🎯 **NestJS** - Modern decorators, guards, dependency injection, and modules
+- 📊 **GraphQL** - Schema directives, resolvers, and Apollo Server integration
+- 🎨 **Consistent API** - Same permission logic across all frameworks
 
 ### **🗄️ Multi-Database Support**
 Works seamlessly with your preferred database through unified adapter pattern:
@@ -117,6 +131,243 @@ app.delete('/users/:id', RBAC.checkPermissions({
 ---
 
 ## 🚀 How do I use it?
+
+Choose your framework and follow the appropriate setup guide:
+
+### 🎯 Quick Framework Selection
+
+| Framework | Use Case | Setup Time |
+|-----------|----------|------------|
+| **Express** | Traditional apps, REST APIs | 2 minutes |
+| **NestJS** | Enterprise apps, microservices | 3 minutes |
+| **GraphQL** | Modern APIs, real-time apps | 4 minutes |
+
+---
+
+## 🌟 NestJS Integration
+
+Perfect for enterprise applications with dependency injection and decorators.
+
+### Step 1: Install Dependencies
+
+```bash
+npm install @mamoorali295/rbac @nestjs/common @nestjs/core express-session
+npm install --save-dev @types/express-session
+```
+
+### Step 2: Configure RBAC Module
+
+```typescript
+import { Module } from '@nestjs/common';
+import { RbacModule } from '@mamoorali295/rbac/nestjs';
+import * as mongoose from 'mongoose';
+
+@Module({
+  imports: [
+    RbacModule.forRoot({
+      database: {
+        type: 'mongodb',
+        connection: mongoose.connection
+      },
+      authAdapter: async (req) => ({ user_id: req.user?.id }),
+      defaultRole: 'user'
+    })
+  ]
+})
+export class AppModule {}
+```
+
+### Step 3: Protect Controllers
+
+```typescript
+import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { CheckPermissions, PermissionsGuard } from '@mamoorali295/rbac/nestjs';
+
+@Controller('billing')
+@UseGuards(PermissionsGuard)
+export class BillingController {
+  @Get('invoices')
+  @CheckPermissions() // Auto-infers: feature="billing", permission="read"
+  getInvoices() {
+    return { invoices: [] };
+  }
+
+  @Post('create')
+  @CheckPermissions({ feature: 'billing', permission: 'create' })
+  createInvoice(@Body() data: any) {
+    return { invoice: data, id: Date.now() };
+  }
+}
+```
+
+### Step 4: NestJS Admin Dashboard
+
+**First, setup session middleware in main.ts:**
+
+```typescript
+// main.ts
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import * as session from 'express-session';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  // Required for admin dashboard
+  app.use(
+    session({
+      secret: 'your-secret-key',
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 24 * 60 * 60 * 1000, // 24 hours
+        httpOnly: true,
+        secure: false // Set to true in production with HTTPS
+      }
+    })
+  );
+  
+  await app.listen(3000);
+}
+bootstrap();
+```
+
+**Then, add admin module to your app module:**
+
+```typescript
+import { RbacAdminModule } from '@mamoorali295/rbac/nestjs';
+
+@Module({
+  imports: [
+    RbacModule.forRoot({ 
+      global: true, // Required for admin module access
+      database: {
+        type: 'mongodb',
+        connection: mongoose.connection
+      },
+      authAdapter: async (req) => ({ user_id: req.user?.id }),
+      defaultRole: 'user'
+    }),
+    
+    // Add admin dashboard module
+    RbacAdminModule.forRoot({
+      adminCredentials: {
+        username: 'admin',
+        password: 'secure-password'
+      },
+      sessionSecret: 'your-secret-key' // Same as main.ts
+    })
+  ]
+})
+export class AppModule {}
+
+// Access admin dashboard at: http://localhost:3000/rbac-admin
+```
+
+### Step 5: Use RBAC Service
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { RbacService } from '@mamoorali295/rbac/nestjs';
+
+@Injectable()
+export class UserService {
+  constructor(private rbacService: RbacService) {}
+  
+  async assignRole(userId: string, role: string) {
+    return await this.rbacService.assignRole(userId, role);
+  }
+  
+  async checkUserPermissions(userId: string, feature: string) {
+    return await this.rbacService.getFeaturePermissions(userId, feature);
+  }
+}
+```
+
+---
+
+## 📊 GraphQL Integration
+
+Modern API protection with schema directives and resolvers.
+
+### Step 1: Install Dependencies
+
+```bash
+npm install @mamoorali295/rbac @apollo/server @graphql-tools/schema graphql
+```
+
+### Step 2: Setup Schema with Directives
+
+```typescript
+import { authDirectiveTransformer, rbacResolvers } from '@mamoorali295/rbac/graphql';
+import { makeExecutableSchema } from '@graphql-tools/schema';
+
+const typeDefs = `
+  directive @auth(feature: String, permission: String) on FIELD_DEFINITION
+  directive @registerUser on FIELD_DEFINITION
+
+  type Query {
+    # Auto-inferred: feature="users", permission="read"
+    users: [User!]! @auth
+    
+    # Explicit permissions
+    adminDashboard: String! @auth(feature: "admin", permission: "read")
+  }
+
+  type Mutation {
+    # Auto-registers user in RBAC + checks permissions
+    createUser(input: CreateUserInput!): User! @auth @registerUser
+    
+    # Requires admin sudo permission
+    resetSystem: Boolean! @auth(feature: "admin", permission: "sudo")
+  }
+`;
+
+let schema = makeExecutableSchema({ 
+  typeDefs, 
+  resolvers: { ...customResolvers, ...rbacResolvers }
+});
+
+// Apply RBAC directive transformers
+schema = authDirectiveTransformer(schema);
+```
+
+### Step 3: Initialize RBAC
+
+```typescript
+import { RBAC } from '@mamoorali295/rbac';
+
+await RBAC.init({
+  database: {
+    type: 'mongodb',
+    connection: mongoose.connection
+  },
+  authAdapter: async (context) => {
+    const user_id = context.user?.id || context.req.headers['x-user-id'];
+    if (!user_id) throw new Error('User not authenticated');
+    return { user_id };
+  }
+});
+```
+
+### Step 4: Apollo Server Setup
+
+```typescript
+import { ApolloServer } from '@apollo/server';
+
+const server = new ApolloServer({
+  schema,
+  context: ({ req }) => ({
+    req,
+    user: req.user, // From your auth middleware
+    user_id: req.user?.id || req.headers['x-user-id']
+  })
+});
+```
+
+---
+
+## 🚀 Express Integration (Traditional)
 
 ### Step 1: Basic Setup & Initialization
 
@@ -727,10 +978,12 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## 🎯 Roadmap
 
 - [x] **Multi-Database Support** - ✅ MongoDB & PostgreSQL fully supported
-- [ ] **Multi-Framework Support** - NestJS, Fastify adapters
+- [x] **Multi-Framework Support** - ✅ Express, NestJS, GraphQL fully supported
+- [ ] **Additional Frameworks** - Fastify, Koa adapters
 - [ ] **Additional Databases** - MySQL, SQLite adapters  
 - [ ] **Audit Logging** - Track all permission changes
 - [ ] **Role Templates** - Predefined role templates for common use cases
+- [ ] **SSO Integration** - SAML, OAuth2, Active Directory support
 
 ---
 
